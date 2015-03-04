@@ -62,20 +62,22 @@ def main(args):
             sclen = read.cigar[0][1]
             scpos = read.pos
             if (ord(read.qual[sclen-1]) - phredscaleoffset > minphredqual): # check phred quality of softclipped region
-              if (scpos in leftscseqs):
-                leftscseqs[scpos].append(read.seq[:sclen])
-              else:
-                leftscseqs[scpos] = []
-                leftscseqs[scpos].append(read.seq[:sclen])
+              if (len(read.seq[:sclen]) >= minsoftcliplen):
+                if (scpos in leftscseqs):
+                  leftscseqs[scpos].append(read.seq[:sclen])
+                else:
+                  leftscseqs[scpos] = []
+                  leftscseqs[scpos].append(read.seq[:sclen])
           if (read.cigar[-1][0] == softclipID):
             sclen = read.cigar[-1][1]
             scpos = read.pos + read.rlen - sclen + 1
             if (ord(read.qual[-sclen-1]) - phredscaleoffset > minphredqual): # check phred quality of softclipped region
-              if (scpos in rightscseqs):
-                rightscseqs[scpos].append(read.seq[-sclen:])
-              else:
-                rightscseqs[scpos] = []
-                rightscseqs[scpos].append(read.seq[-sclen:])
+              if (len(read.seq[-sclen:]) >= minsoftcliplen):
+                if (scpos in rightscseqs):
+                  rightscseqs[scpos].append(read.seq[-sclen:])
+                else:
+                  rightscseqs[scpos] = []
+                  rightscseqs[scpos].append(read.seq[-sclen:])
         count += 1
         if (count >= avereaddepth*maxreaddepthmult):
           largedepth = True
@@ -85,32 +87,32 @@ def main(args):
         skippedclusters.write("%s:%i-%i\t%s\n" % (chrom, rstart, rend, clusnum))
         continue
 
-      longscs = 0
       leftmaxseqs = 0
       leftscpos = 0
       for pos, seqs in leftscseqs.iteritems():
-        longscs = 0
-        for i in xrange(len(seqs)):
-          if (len(seqs[i]) > minsoftcliplen):
-            longscs += 1
-        if (longscs > leftmaxseqs):
-          leftmaxseqs = longscs
+        if (len(seqs) > leftmaxseqs):
+          leftmaxseqs = len(seqs)
           leftscpos = pos
 
-      longscs = 0
+      # Add reads in +-5 buffer range to the max
+      for i in xrange(leftscpos - 5, leftscpos + 5):
+        if (i != leftscpos and i in leftscseqs):
+          for j in xrange(len(leftscseqs[i])):
+            leftscseqs[leftscpos].append(leftscseqs[i][j])
+            leftmaxseqs += 1
+
       rightmaxseqs = 0
       rightscpos = 0
       for pos, seqs in rightscseqs.iteritems():
-        longscs = 0
-        for i in xrange(len(seqs)):
-          if (len(seqs[i]) > minsoftcliplen):
-            longscs += 1
-        if (longscs > rightmaxseqs):
-          rightmaxseqs = longscs
+        if (len(seqs) > rightmaxseqs):
+          rightmaxseqs = len(seqs)
           rightscpos = pos
 
-      if (leftmaxseqs == 0 and rightmaxseqs == 0):
-        continue
+      for i in xrange(rightscpos - 5, rightscpos + 5):
+        if (i != rightscpos and i in rightscseqs):
+          for j in xrange(len(rightscseqs[i])):
+            rightscseqs[rightscpos].append(rightscseqs[i][j])
+            rightmaxseqs += 1
 
       maxseqs = leftmaxseqs + rightmaxseqs
       if (maxseqs >= minnumsoftclips):
