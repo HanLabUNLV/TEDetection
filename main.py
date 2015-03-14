@@ -42,7 +42,7 @@ def parseArgs(sysargs):
         args[opt] = True
         i += 1
         break
-      if case("-h") or case("--help"):
+      if case("-h") or case("--help") or case (""):
         print "Usage: ./TEDetection\n \
             -sd [Path/to/SourceScripts]\n \
             -bf [Path/to/BamFile.bam]\n \
