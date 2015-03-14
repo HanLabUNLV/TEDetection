@@ -24,26 +24,7 @@ class switch(object):
       return False
 
 def parseArgs(sysargs):
-  args = {}
-  # Default values
-  args["-rd"] = 50
-  args["-mc"] = 5
-  args["-ms"] = 3
-  args["-sr"] = 75
-  args["-st"] = 1
-  args["-sm"] = 1073741824
-  args["-d"] = False
-  i = 1
-  default = True
-  while (i < len(sysargs)):
-    for case in switch(sysargs[i]):
-      if case("-d"):
-        opt = sysargs[i]
-        args[opt] = True
-        i += 1
-        break
-      if case("-h") or case("--help") or case (""):
-        print "Usage: ./TEDetection\n \
+  usage = "Usage: ./TEDetection\n \
             -sd [Path/to/SourceScripts]\n \
             -bf [Path/to/BamFile.bam]\n \
             -tr [Path/to/TErefgen.fasta]\n \
@@ -66,6 +47,30 @@ def parseArgs(sysargs):
             -sm <int>(bytes) default: 1073741824 (1 GB) Amount of memory per thread used in sorting\n \
             -d  Discard intermediate files when finished\n \
             -h/--help This usage output"
+
+  args = {}
+  # Default values
+  args["-rd"] = 50
+  args["-mc"] = 5
+  args["-ms"] = 3
+  args["-sr"] = 75
+  args["-st"] = 1
+  args["-sm"] = 1073741824
+  args["-d"] = False
+  i = 1
+  default = True
+  if (len(sysargs) == 1):
+    print usage
+    quit()
+  while (i < len(sysargs)):
+    for case in switch(sysargs[i]):
+      if case("-d"):
+        opt = sysargs[i]
+        args[opt] = True
+        i += 1
+        break
+      if case("-h") or case("--help") or case (""):
+        print usage
         quit()
 
       if (default):
