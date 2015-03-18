@@ -28,6 +28,7 @@ def parseArgs(sysargs):
             -sd [Path/to/SourceScripts]\n \
             -bf [Path/to/BamFile.bam]\n \
             -tr [Path/to/TErefgen.fasta]\n \
+            -od [OutputDirectory/] default is current working directory\n \
             -bb [Path/to/SortedByNameBamfile.bam] (will be created if left empty)\n \
             -is [Path/to/isinfo.txt]  mean + std dev of insert sizes (will be created if left empty)\n \
             -db [Path/to/DiscordantPairs.bam] coordinate sorted file of discordant pairs (will be created if left empty)\n \
@@ -88,6 +89,13 @@ def main(args):
   import cluster_discordant_pairs
   import compare_mapped_reads
   import extract_discordant_pairs
+
+  if ("-od" in argdict):
+    try:
+      os.makedirs(argdict["-od"])
+    except OSError:
+      print "Output folder already exists"
+    os.chdir(argdict["-od"])
 
   try:
     os.makedirs("Scratch")
