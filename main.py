@@ -58,6 +58,7 @@ def parseArgs(sysargs):
   args["-st"] = 1
   args["-sm"] = 1073741824
   args["-d"] = False
+  args["-tg"] = "none"
   i = 1
   default = True
   if (len(sysargs) == 1):
