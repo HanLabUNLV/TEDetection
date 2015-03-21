@@ -69,3 +69,20 @@ bwa:
     export PATH
   Or you can copy the bwa executable to a folder already in the path:
     sudo cp bwa /usr/local/bin/
+
+Running the Program
+-------------------
+Only 3 of the arguments are necessary to run the program:
+  -sd Path to the directory of source scripts (included with the program in SourceScripts/)
+  -tr Path to the TE reference fasta (included with the program in TERef/)
+  -bf Path to the .bam file to run the analysis on
+All other arguments are optional or have predefined default values the program
+will use. The bamfile must be sorted and indexed. If it is not already, you
+can do so using samtools:
+  samtools sort -O bam -T sorted file.bam
+  samtools index file.bam
+The TE reference must also be index by bwa. The included reference is indexed,
+but if you would like to use your own, index it by:
+  bwa index TEreference.fasta
+A basic run of the program would look like the following:
+./main.py -sd SourceScripts -tr TERef/repBase_Homo_sapiens_all_TE.fasta -bf cancer_sample.bam
