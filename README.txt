@@ -21,9 +21,15 @@ Samtools:
   Then install samtools by:
     wget https://github.com/samtools/samtools/releases/download/1.2/samtools-1.2.tar.bz2
     tar -xjf samtools-1.2.tar.bz2
-    cd samtools-1.2.tar.bz2
+    cd samtools-1.2
     make
     sudo make install
+  If you get an error similar to this:
+    bam_tview_curses.o: undefined reference to symbol 'keypad'
+  Open up samtools-1.2/Makefile, find the line that says:
+    LDFLAGS = 
+  and change it to:
+    LDFLAGS = -ltinfo
 
 Pysam:
   To install pysam, you will need pip installed. If you have python 2.7.9+, pip
