@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import sys
+import os.path
 
 def main(args):
   patID = args[1]
@@ -52,12 +53,13 @@ def main(args):
       for i in xrange(int(line_sp[2]) - srange, int(line_sp[2]) + srange):
         normalBP[(chrom, i)] = 1
 
-  with open(polymorphfilename, 'r') as polymorphfile:
-    for line in polymorphfile:
-      line_sp = line.rstrip('\n').split('\t')
-      chrom = line_sp[0]
-      polymorphBP[(chrom, line_sp[4])] = 1
-      polymorphBP[(chrom, line_sp[5])] = 1
+  if (os.path.isfile(polymorphfilename)):
+    with open(polymorphfilename, 'r') as polymorphfile:
+      for line in polymorphfile:
+        line_sp = line.rstrip('\n').split('\t')
+        chrom = line_sp[0]
+        polymorphBP[(chrom, line_sp[4])] = 1
+        polymorphBP[(chrom, line_sp[5])] = 1
 
   overlapfile = open("%s.overlaps.txt" % (patID), 'w+')
   overlapfile.write("Chromosome\tCluster\tSupportingReads\tTEFamily\tLeftBP\tRightBP\tTEMatch\n")

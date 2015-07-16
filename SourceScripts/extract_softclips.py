@@ -46,11 +46,11 @@ def main(args):
       clusnum = ranges[1]
       readstrand = ranges[5].rstrip('\n')
       if (readstrand == '+'):
-        rstart = int(ranges[3]) - searchrange
-        rend = int(ranges[3]) + searchrange
+        rstart = max(int(ranges[3]) - searchrange, 1) # If start is too small, keep it at 1
+        rend = max(int(ranges[3]) + searchrange, 1)
       elif (readstrand == '-'):
-        rstart = int(ranges[2]) - searchrange
-        rend = int(ranges[2]) + searchrange
+        rstart = max(int(ranges[2]) - searchrange, 1)
+        rend = max(int(ranges[2]) + searchrange, 1)
 
       range_iter = bamfile.fetch(chrom, rstart - 1, rend - 1).__iter__()
 
