@@ -24,7 +24,7 @@ def main(args):
   ## Magic Numbers
   minqual = 5 # minimum quality
   softclipID = 4 # pysam ID for softclipped region in cigar string
-  minphredqual = 10 # minimum phred quality for softclipped sequences
+  minphredqual = 30.0 # minimum phred quality for softclipped sequences
   phredscaleoffset = 33 # offset to calculate phred score of a nucleotide
   maxreaddepthmult = 15 # read depth multiplier to filter out large repeat regions
   minsoftcliplen = 7 # minimum length of softclipped sequence to be considered
@@ -32,6 +32,7 @@ def main(args):
                       # This is different than the user input minimum number of softclipped reads
                       # User input is used in filtering a later step
 
+  maxdepth = avereaddepth*maxreaddepthmult
   leftscseqs = {}
   rightscseqs = {}
 
@@ -58,28 +59,32 @@ def main(args):
       largedepth = False
       for read in range_iter:
         if (not read.is_duplicate and read.mapq >= minqual):
-          if (read.cigar[0][0] == softclipID):
-            sclen = read.cigar[0][1]
-            scpos = read.pos
-            if (ord(read.qual[sclen-1]) - phredscaleoffset > minphredqual): # check phred quality of softclipped region
-              if (len(read.seq[:sclen]) >= minsoftcliplen):
-                if (scpos in leftscseqs):
-                  leftscseqs[scpos].append(read.seq[:sclen])
-                else:
-                  leftscseqs[scpos] = []
-                  leftscseqs[scpos].append(read.seq[:sclen])
-          if (read.cigar[-1][0] == softclipID):
-            sclen = read.cigar[-1][1]
-            scpos = read.pos + read.rlen - sclen + 1
-            if (ord(read.qual[-sclen-1]) - phredscaleoffset > minphredqual): # check phred quality of softclipped region
-              if (len(read.seq[-sclen:]) >= minsoftcliplen):
-                if (scpos in rightscseqs):
-                  rightscseqs[scpos].append(read.seq[-sclen:])
-                else:
-                  rightscseqs[scpos] = []
-                  rightscseqs[scpos].append(read.seq[-sclen:])
+          mismatches = [tag for tag in read.tags if tag[0] == 'NM']
+          if (len(mismatches) == 0 or mismatches[0][1] <= 2): # ignore reads with more than 2 mismatches in unique region or continue of no NM tag is found
+            if (read.cigar[0][0] == softclipID):
+              sclen = read.cigar[0][1]
+              scpos = read.pos
+              scqual = [ord(read.qual[i]) - phredscaleoffset for i in range(0, sclen)]
+              if (float(sum(scqual)/len(scqual)) > minphredqual): # check phred quality of softclipped region
+                if (len(read.seq[:sclen]) >= minsoftcliplen):
+                  if (scpos in leftscseqs):
+                    leftscseqs[scpos].append(read.seq[:sclen])
+                  else:
+                    leftscseqs[scpos] = []
+                    leftscseqs[scpos].append(read.seq[:sclen])
+            if (read.cigar[-1][0] == softclipID):
+              sclen = read.cigar[-1][1]
+              scpos = read.pos + read.rlen - sclen + 1
+              scqual = [ord(read.qual[i]) - phredscaleoffset for i in range(-sclen, 0)]
+              if (float(sum(scqual)/len(scqual)) > minphredqual): # check phred quality of softclipped region
+                if (len(read.seq[-sclen:]) >= minsoftcliplen):
+                  if (scpos in rightscseqs):
+                    rightscseqs[scpos].append(read.seq[-sclen:])
+                  else:
+                    rightscseqs[scpos] = []
+                    rightscseqs[scpos].append(read.seq[-sclen:])
         count += 1
-        if (count >= avereaddepth*maxreaddepthmult):
+        if (count >= maxdepth):
           largedepth = True
           break
 
@@ -118,14 +123,14 @@ def main(args):
       if (maxseqs >= minnumsoftclips):
         coverage = 0
         if (leftmaxseqs > 0):
-          coverage_iter = bamfile.fetch(chrom, leftscpos-2, leftscpos).__iter__() # positions are 0-based, -2 to +0 is -1 to +1
+          coverage_iter = bamfile.fetch(chrom, max(leftscpos-2, 0), leftscpos).__iter__() # positions are 0-based, -2 to +0 is -1 to +1
           for read in coverage_iter:
-            if (read.cigarstring == "100M" and read.qual > minqual): # Count unique reads mapped through the breakpoint
+            if (len(read.cigarstring.split('M')) == 2 and read.mapq > minqual): # Count unique reads mapped through the breakpoint
               coverage += 1
         if (rightmaxseqs > 0):
-          coverage_iter = bamfile.fetch(chrom, rightscpos-2, rightscpos).__iter__()
+          coverage_iter = bamfile.fetch(chrom, max(rightscpos-2, 0), rightscpos).__iter__()
           for read in coverage_iter:
-            if (read.cigarstring == "100M" and read.qual > minqual):
+            if (len(read.cigarstring.split('M')) == 2 and read.mapq > minqual): # Count unique reads mapped through the breakpoint
               coverage += 1
 
         if (leftmaxseqs > 0):

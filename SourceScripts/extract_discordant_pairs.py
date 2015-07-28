@@ -10,7 +10,7 @@ def main(args):
 
   ## Magic Numbers
   minqual = 5 # minimum quality to filter out multi-mapping reads
-  Ychromnum = 24 # chromosome number for Y, not looking at any other chromosomes
+  Ychromnum = 24 # chromosome number for Y, not looking at any other chromosomes after Y
 
   bamfile = pysam.Samfile(args[1], "rb")
   discfilename = "Scratch/" + os.path.splitext(os.path.basename(args[1]))[0]+".disc.bam"

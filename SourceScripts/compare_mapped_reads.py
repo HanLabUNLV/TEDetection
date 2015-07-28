@@ -123,6 +123,70 @@ def main(args):
       if (not (left_bp, right_bp, chrom) in bps):
         outputfiletowrite.append(chrom + '\t' + clus + '\t' + str(support) + '\t' + possibleTEs + '\t' + left_bp + '\t' + right_bp + '\t' + TEmatch + '\n')
         bps[(left_bp, right_bp, chrom)] = 1
+    else: # If no discordant reads mapped to anything
+      if ((key, "left") in breakpoints):
+        left_bp_split = breakpoints[(key, "left")].split('\t')
+        left_bp = left_bp_split[2]
+        chrom = left_bp_split[0]
+        clus = left_bp_split[1]
+        support = left_bp_split[3]
+      else:
+        left_bp = "NA"
+
+      if ((key, "right") in breakpoints):
+        right_bp_split = breakpoints[(key, "right")].split('\t')
+        right_bp = right_bp_split[2]
+        chrom = right_bp_split[0]
+        clus = right_bp_split[1]
+        support = right_bp_split[3]
+      else:
+        right_bp = "NA"
+
+      if (groupedTEsfilename == "none"):
+        possibleTEs = ','.join(value)
+      else:
+        sclist = list(value)
+        scgroups = set()
+        for i in xrange(len(sclist)):
+          scgroups.add(TEgroups[sclist[i]])
+        possibleTEs = ','.join(scgroups)
+      TEmatch = "Yes"
+      if (not (left_bp, right_bp, chrom) in bps):
+          outputfiletowrite.append(chrom + '\t' + clus + '\t' + str(support) + '\t' + possibleTEs + '\t' + left_bp + '\t' + right_bp + '\t' + TEmatch + '\n')
+          bps[(left_bp, right_bp, chrom)] = 1
+
+  for key, value in dfmapped.iteritems(): # call reads with only discordant pairs aligning to TE
+    if (key not in scmapped):
+      if ((key, "left") in breakpoints):
+        left_bp_split = breakpoints[(key, "left")].split('\t')
+        left_bp = left_bp_split[2]
+        chrom = left_bp_split[0]
+        clus = left_bp_split[1]
+        support = left_bp_split[3]
+      else:
+        left_bp = "NA"
+
+      if ((key, "right") in breakpoints):
+        right_bp_split = breakpoints[(key, "right")].split('\t')
+        right_bp = right_bp_split[2]
+        chrom = right_bp_split[0]
+        clus = right_bp_split[1]
+        support = right_bp_split[3]
+      else:
+        right_bp = "NA"
+
+      if (groupedTEsfilename == "none"):
+        possibleTEs = ','.join(value)
+      else:
+        dflist = list(value)
+        dfgroups = set()
+        for i in xrange(len(dflist)):
+          dfgroups.add(TEgroups[dflist[i]])
+        possibleTEs = ','.join(dfgroups)
+      TEmatch = "Yes"
+      if (not (left_bp, right_bp, chrom) in bps):
+          outputfiletowrite.append(chrom + '\t' + clus + '\t' + str(support) + '\t' + possibleTEs + '\t' + left_bp + '\t' + right_bp + '\t' + TEmatch + '\n')
+          bps[(left_bp, right_bp, chrom)] = 1
 
   outputfiletowrite = sorted(list(set(outputfiletowrite)), key=lambda x: int(x.split('\t')[1]))
 

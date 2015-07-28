@@ -25,7 +25,8 @@ def main(args):
     header = cancerRBPfile.readline()
     for line in cancerRBPfile:
       line_sp = line.rstrip('\n').split('\t')
-      if (line_sp[4] != "NA" and line_sp[5] != "NA" and line_sp[-1] == "Yes" and int(line_sp[2]) >= minscsup \
+      #if (line_sp[4] != "NA" and line_sp[5] != "NA" and line_sp[-1] == "Yes" and int(line_sp[2]) >= minscsup \
+      if (line_sp[-1] == "Yes" and int(line_sp[2]) >= minscsup \
           and (line_sp[3] == "SINE1/7SL" or line_sp[3] == "L1")):
         cancerRBP.append(line)
 
@@ -33,7 +34,8 @@ def main(args):
     header = normalRBPfile.readline()
     for line in normalRBPfile:
       line_sp = line.rstrip('\n').split('\t')
-      if (line_sp[4] != "NA" and line_sp[5] != "NA" and line_sp[-1] == "Yes" and int(line_sp[2]) >= minscsup \
+      #if (line_sp[4] != "NA" and line_sp[5] != "NA" and line_sp[-1] == "Yes" and int(line_sp[2]) >= minscsup \
+      if (line_sp[-1] == "Yes" and int(line_sp[2]) >= minscsup \
           and (line_sp[3] == "SINE1/7SL" or line_sp[3] == "L1")):
         normalRBP.append(line)
 
@@ -74,23 +76,38 @@ def main(args):
   for i in xrange(len(cancerRBP)):
     line_sp = cancerRBP[i].rstrip('\n').split('\t')
     chrom = line_sp[0]
-    if ((chrom, int(line_sp[4])) in normalBP or (chrom, int(line_sp[5])) in normalBP or (chrom, line_sp[4]) in polymorphBP or (chrom, line_sp[5]) in polymorphBP):
+    if (line_sp[4] != "NA" and ((chrom, int(line_sp[4])) in normalBP or (chrom, line_sp[4]) in polymorphBP)):
       overlapfiletowrite[(chrom, line_sp[4], line_sp[5])] = cancerRBP[i]
       if (not (chrom, line_sp[4]) in polymorphBP or not (chrom, line_sp[5]) in polymorphBP):
         appendpolymorphfile.write(cancerRBP[i])
-        polymorphBP[(chrom, line_sp[4], line_sp[5])] = 1
+        polymorphBP[(chrom, line_sp[4])] = 1
+        polymorphBP[(chrom, line_sp[5])] = 1
+    elif (line_sp[5] != "NA" and ((chrom, int(line_sp[5])) in normalBP or (chrom, line_sp[5]) in polymorphBP)):
+      overlapfiletowrite[(chrom, line_sp[4], line_sp[5])] = cancerRBP[i]
+      if (not (chrom, line_sp[4]) in polymorphBP or not (chrom, line_sp[5]) in polymorphBP):
+        appendpolymorphfile.write(cancerRBP[i])
+        polymorphBP[(chrom, line_sp[4])] = 1
+        polymorphBP[(chrom, line_sp[5])] = 1
     else:
       canceronlyfile.write(cancerRBP[i])
 
   for i in xrange(len(normalRBP)):
     line_sp = normalRBP[i].rstrip('\n').split('\t')
     chrom = line_sp[0]
-    if ((chrom, int(line_sp[4])) in cancerBP or (chrom, int(line_sp[5])) in cancerBP or (chrom, line_sp[4]) in polymorphBP or (chrom, line_sp[5]) in polymorphBP):
-      overlapfiletowrite[(chrom, line_sp[4], line_sp[5])] = normalRBP[i]
+    if (line_sp[4] != "NA" and ((chrom, int(line_sp[4])) in cancerBP or (chrom, line_sp[4]) in polymorphBP)):
+      overlapfiletowrite[(chrom, line_sp[4], line_sp[5])] = cancerRBP[i]
       if (not (chrom, line_sp[4]) in polymorphBP or not (chrom, line_sp[5]) in polymorphBP):
-        appendpolymorphfile.write(normalRBP[i])
+        appendpolymorphfile.write(cancerRBP[i])
+        polymorphBP[(chrom, line_sp[4])] = 1
+        polymorphBP[(chrom, line_sp[5])] = 1
+    elif (line_sp[5] != "NA" and ((chrom, int(line_sp[5])) in cancerBP or (chrom, line_sp[5]) in polymorphBP)):
+      overlapfiletowrite[(chrom, line_sp[4], line_sp[5])] = cancerRBP[i]
+      if (not (chrom, line_sp[4]) in polymorphBP or not (chrom, line_sp[5]) in polymorphBP):
+        appendpolymorphfile.write(cancerRBP[i])
+        polymorphBP[(chrom, line_sp[4])] = 1
+        polymorphBP[(chrom, line_sp[5])] = 1
     else:
-      normalonlyfile.write(normalRBP[i])
+      normalonlyfile.write(cancerRBP[i])
 
   for key, value in overlapfiletowrite.iteritems():
     overlapfile.write(value)
