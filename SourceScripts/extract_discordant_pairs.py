@@ -1,16 +1,16 @@
 #!/usr/bin/env python
+import pysam
+import sys
+import os.path
+import itertools
 
 def main(args):
   # Insert size file must contain median and std
   # Assumes bam file is sorted by query name!!
-  import pysam
-  import sys
-  import os.path
-  import itertools
 
   ## Magic Numbers
   minqual = 5 # minimum quality to filter out multi-mapping reads
-  Ychromnum = 24 # chromosome number for Y, not looking at any other chromosomes after Y
+  Ychromnum = 24 # chromosome number (id in bam file) for Y, not looking at any other chromosomes after Y
 
   bamfile = pysam.Samfile(args[1], "rb")
   discfilename = "Scratch/" + os.path.splitext(os.path.basename(args[1]))[0]+".disc.bam"
@@ -30,8 +30,8 @@ def main(args):
         if (first_read.mapq > minqual or second_read.mapq > minqual):
           if (first_read.tid < Ychromnum and second_read.tid < Ychromnum): # Only look at chr 1-22,X,Y
             if ((first_read.tid != second_read.tid) \
-                or (first_read.is_unmapped and not second_read.is_unmapped) \
-                or (not first_read.is_unmapped and second_read.is_unmapped) \
+                #or (first_read.is_unmapped and not second_read.is_unmapped) \
+                #or (not first_read.is_unmapped and second_read.is_unmapped) \
                 or abs(first_read.tlen) > (ismean + 3*isstd)):
               #read1pos = basepos
               offset1 = discfile.write(first_read)
