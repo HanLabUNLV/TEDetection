@@ -9,10 +9,10 @@ def main(args):
   bamfile = pysam.Samfile(args[1], 'rb')
   basename = os.path.splitext(os.path.basename(args[1]))[0]
   rangefilename = args[2]
-  searchrange = int(args[3])
-  avereaddepth = int(args[4])
-  TEReffilename = args[5]
-  numthreads = args[6]
+  avereaddepth = int(args[3])
+  TEReffilename = args[4]
+  numthreads = args[5]
+  minclustsize = int(args[6])
   bpfile = open("Results/" + basename + ".breakpoints.txt", 'w')
   bpfile.write("Chromosome\tCluster\tPosition\tSupportingReads\tNonsupportingReads\tSideOfSoftclip\n")
   skippedclusters = open("Results/" + basename + ".skipped.clusters.txt", 'w')
@@ -22,17 +22,17 @@ def main(args):
   scfile = open(scfilename, 'w')
 
   ## Magic Numbers
+  readlen = 100 # estimated read length for search range
   minqual = 5 # minimum quality
+  minsearchrange = 500 # minimum range to search from clusters
   softclipID = 4 # pysam ID for softclipped region in cigar string
   minphredqual = 30.0 # minimum phred quality for softclipped sequences
   phredscaleoffset = 33 # offset to calculate phred score of a nucleotide
-  maxreaddepthmult = 15 # read depth multiplier to filter out large repeat regions
-  minsoftcliplen = 7 # minimum length of softclipped sequence to be considered
-  minnumsoftclips = 2 # minimum number of softclipped reads need to support a breakpoint
-                      # This is different than the user input minimum number of softclipped reads
+  minsoftcliplen = 10 # minimum length of softclipped sequence to be considered
+  minnumsoftclips = 5 # minimum number of softclipped reads need to support a breakpoint
+                      # This is different than the user input minimum support
                       # User input is used in filtering a later step
 
-  maxdepth = avereaddepth*maxreaddepthmult
   leftscseqs = {}
   rightscseqs = {}
 
@@ -43,15 +43,23 @@ def main(args):
       rightscseqs.clear()
 
       ranges = line.split('\t')
+      clustsize = int(ranges[4])
+      if (clustsize < minclustsize):
+        continue
       chrom = ranges[0]
       clusnum = ranges[1]
-      readstrand = ranges[5].rstrip('\n')
-      if (readstrand == '+'):
-        rstart = max(int(ranges[3]) - searchrange, 1) # If start is too small, keep it at 1
-        rend = max(int(ranges[3]) + searchrange, 1)
-      elif (readstrand == '-'):
-        rstart = max(int(ranges[2]) - searchrange, 1)
-        rend = max(int(ranges[2]) + searchrange, 1)
+      rstart = int(ranges[2]) - readlen
+      rend = int(ranges[3]) + readlen
+      searchrange = rend - rstart
+      if (searchrange < minsearchrange):
+        rstart -= (minsearchrange - searchrange)/2
+        rend += (minsearchrange - searchrange)/2
+
+      rstart = max(rstart, 1) # make sure start range is not negative
+
+      maxreaddepthmult = ((searchrange*2)/readlen) * 5 # read depth multiplier to filter out large repeat regions
+                                                       # will filter anything with >5x average read depth
+      maxdepth = avereaddepth*maxreaddepthmult
 
       range_iter = bamfile.fetch(chrom, rstart - 1, rend - 1).__iter__()
 
@@ -75,6 +83,8 @@ def main(args):
             if (read.cigar[-1][0] == softclipID):
               sclen = read.cigar[-1][1]
               scpos = read.pos + read.rlen - sclen + 1
+              if (read.cigar[0][0] == softclipID): # samfiles don't count leftside softclips in the position
+                scpos -= read.cigar[0][1]
               scqual = [ord(read.qual[i]) - phredscaleoffset for i in range(-sclen, 0)]
               if (float(sum(scqual)/len(scqual)) > minphredqual): # check phred quality of softclipped region
                 if (len(read.seq[-sclen:]) >= minsoftcliplen):
