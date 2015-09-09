@@ -41,9 +41,8 @@ def parseArgs(sysargs):
             -bp [Path/to/Breakpoints.txt] (will be created if left empty)\n \
             -tg [Path/to/TEGroups.txt]  File with tab seperate groups of similar TEs (optional)\n \
             -rd <int> default:50   Average read depth (used for filtering sections of abnormally large read depth)\n \
-            -mc <int> default:5    Minimum cluster size for discordant reads\n \
+            -mc <int> default:3    Minimum cluster size for discordant reads\n \
             -ms <int> default:3    Minimum softclips supporting a breakpoint\n \
-            -sr <int> default:75  Search range for breakpoints\n \
             -st <int> default:1    Number of threads for sorting\n \
             -sm <int>(bytes) default: 1073741824 (1 GB) Amount of memory per thread used in sorting\n \
             -d  Discard intermediate files when finished\n \
@@ -52,9 +51,8 @@ def parseArgs(sysargs):
   args = {}
   # Default values
   args["-rd"] = 50
-  args["-mc"] = 5
+  args["-mc"] = 3
   args["-ms"] = 3
-  args["-sr"] = 75
   args["-st"] = 1
   args["-sm"] = 1073741824
   args["-d"] = False
@@ -167,7 +165,7 @@ def main(args):
     outputfile.write("Clustering discordant reads.." + '\n')
     outputfile.write(str(datetime.datetime.today()) + '\n')
 
-    cluster_discordant_pairs.main(["none", argdict["-db"], argdict["-mc"], argdict["-rd"], argdict["-is"]])
+    cluster_discordant_pairs.main(["none", argdict["-db"], argdict["-rd"], argdict["-is"]])
     argdict["-cf"] = "Results/%s.clusters.txt" % (os.path.splitext(os.path.basename(argdict["-db"]))[0])
     argdict["-cr"] = "Results/%s.clusters.ranges.txt" % (os.path.splitext(os.path.basename(argdict["-db"]))[0])
 
@@ -184,7 +182,7 @@ def main(args):
   if (not "-ss" in argdict or not "-bp" in argdict):
     outputfile.write("Mapping softclip reads to TE reference genome.." + '\n')
     outputfile.write(str(datetime.datetime.today()) + '\n')
-    extractsccommand = "python  %s/extract_softclips.py %s %s %s %s %s %s" % (argdict["-sd"], argdict["-bf"], argdict["-cr"], argdict["-sr"], argdict["-rd"], argdict["-tr"], argdict["-st"])
+    extractsccommand = "python  %s/extract_softclips.py %s %s %s %s %s %s" % (argdict["-sd"], argdict["-bf"], argdict["-cr"], argdict["-rd"], argdict["-tr"], argdict["-st"], argdict["-mc"])
     extractscproc = subprocess.Popen(extractsccommand, stdout=subprocess.PIPE, shell=True)
     argdict["-ss"] = "Scratch/%s.softclips.sam" % (basename)
     argdict["-bp"] = "Results/%s.breakpoints.txt" % (basename)
@@ -198,7 +196,7 @@ def main(args):
   refinedoutputfilename = "Results/%s.refined.breakpoints.txt" % (basename)
   outputfile.write("Comparing mapped cluster mates to mapped softclip sequences.." + '\n')
   outputfile.write(str(datetime.datetime.today()) + '\n')
-  compare_mapped_reads.main(["none", argdict["-cs"], argdict["-ss"], argdict["-bp"], refinedoutputfilename, argdict["-tg"]])
+  compare_mapped_reads.main(["none", argdict["-cs"], argdict["-ss"], argdict["-bp"], refinedoutputfilename, argdict["-tg"], argdict["-cr"]])
 
   if (argdict["-d"] == True):
     outputfile.write("Removing temp data from scratch directory.." + '\n')
