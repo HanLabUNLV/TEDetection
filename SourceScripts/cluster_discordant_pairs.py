@@ -8,7 +8,8 @@ def main(args):
   basename = os.path.splitext(os.path.basename(args[1]))[0]
   discfile = pysam.Samfile(args[1], "rb")
   readdepth = int(args[2])
-  isfile = open(args[3], 'r')
+  minclustsize = int(args[3])
+  isfile = open(args[4], 'r')
   ismean = float(isfile.readline().strip('\n'))
   isfile.close()
 
@@ -16,6 +17,7 @@ def main(args):
   minqual = 5 # minimum quality to filter out multi-mapped reads
   readlen = 100 # read length
   bufrange = int(ismean) # buffer range between discordant reads
+  windowsize = int(ismean) # window size for finding highest density of reads
   # This is to prevent large repeat regions from clogging file writing pipeline
   #maxclustsize = (readdepth*ismean*15)/readlen
 
@@ -27,18 +29,40 @@ def main(args):
   clusternum = 0
   totcluster = 0
   chrom = 0
+  leftpos = 0
+  rightpos = 0
   bam_iter = discfile.__iter__()
 
   def writeCluster():
-    #if (clusternum >= minclustsize): #and clusternum <= maxclustsize):
-    clusfile.write(">%i\n" % (totcluster))
+    if (clusternum >= minclustsize): #and clusternum <= maxclustsize):
+      clusfile.write(">%i\n" % (totcluster))
 
-    for value in cluster.itervalues():
-      clusfile.write("%s\\%i\n" % (value.qname, value.is_read1))
+      bins = []
 
-    rangesfile.write("%s\t%i\t%i\t%i\t%i\n" % (discfile.getrname(chrom), totcluster, leftpos+1, rightpos+1, clusternum))
-    return True
-    #return False
+      for i in xrange(((rightpos - leftpos) / windowsize) + 1):
+        bins.append([])
+
+      for value in cluster.itervalues():
+        pos = value.pos
+        if (read.cigar[0][0] == 4):
+          pos -= read.cigar[0][1]
+        index = (pos - leftpos) / windowsize
+        bins[index].append(value)
+
+      max_bin = bins.index(max(bins, key=lambda x: len(x))) # get bin with largest number of reads
+
+      count = 0
+      for i in xrange(max(max_bin - 2, 0), min(max_bin + 3, len(bins))): # get 2 bins to the left and right of max
+        for disc_read in bins[i]:
+          clusfile.write("%s\\%i\n" % (disc_read.qname, disc_read.is_read1))
+          count += 1
+
+      clusleftpos = leftpos + (max_bin - 2)*windowsize # 2 bins before max
+      clusrightpos = clusleftpos + 5*windowsize # 2 bins after max (2 before + 4 + 1 to reach end)
+
+      rangesfile.write("%s\t%i\t%i\t%i\t%i\n" % (discfile.getrname(chrom), totcluster, clusleftpos+1, clusrightpos+1, count))
+      return True
+    return False
 
 
   for read in bam_iter:
