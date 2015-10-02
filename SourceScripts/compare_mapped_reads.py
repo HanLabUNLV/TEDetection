@@ -11,6 +11,8 @@ def main(args):
   outputfilename = args[4]
   groupedTEsfilename = args[5]
   clusterrangesfilename = args[6]
+  mappeddiscfilename = args[7]
+  mappedscfilename = args[8]
 
   dfmapped = {}
   scmapped = {}
@@ -109,6 +111,10 @@ def main(args):
   outputfile.write(header)
   outputfiletowrite = []
   bps = {}
+  sc_TE = {}
+  sc_count = {}
+  dc_TE = {}
+  dc_count = {}
 
   for key,value in scmapped.iteritems():
     if (key in dfmapped):
@@ -121,21 +127,18 @@ def main(args):
           grouped_sc_TEs[i] = TEgroups[value[i]]
         for i in xrange(len(dfmapped[key])):
           grouped_dc_TEs[i] = TEgroups[dfmapped[key][i]]
-      sc_TE, sc_count = most_common(grouped_sc_TEs)
-      dc_TE, dc_count = most_common(grouped_dc_TEs)
-      if (sc_TE != dc_TE):
+      sc_TE[key], sc_count[key] = most_common(grouped_sc_TEs)
+      dc_TE[key], dc_count[key] = most_common(grouped_dc_TEs)
+      if (sc_TE[key] != dc_TE[key]):
         TEmatch = "No"
-        support = dc_count
-      else:
-        support = sc_count + dc_count
-      ins_TE = dc_TE
+      support = dc_count[key]
+      ins_TE = dc_TE[key]
 
       if ((key, "left") in breakpoints):
         left_bp_split = breakpoints[(key, "left")].split('\t')
         left_bp = left_bp_split[2]
         chrom = left_bp_split[0]
-        clus = left_bp_split[1]
-        #support = left_bp_split[3]
+        support += int(left_bp_split[3])
       else:
         left_bp = "NA"
 
@@ -143,28 +146,31 @@ def main(args):
         right_bp_split = breakpoints[(key, "right")].split('\t')
         right_bp = right_bp_split[2]
         chrom = right_bp_split[0]
-        clus = right_bp_split[1]
-        #support = right_bp_split[3]
+        support += int(right_bp_split[3])
       else:
         right_bp = "NA"
+
+      clus = key
 
       if (not (left_bp, right_bp, chrom) in bps):
         outputfiletowrite.append(chrom + '\t' + clus + '\t' + str(support) + '\t' + ins_TE + '\t' + left_bp + '\t' + right_bp + '\t' + both_align + '\t' + TEmatch + '\n')
         bps[(left_bp, right_bp, chrom)] = 1
+
     else: # If no discordant reads mapped to anything
       both_align = "No"
       grouped_sc_TEs = value
       if (groupedTEsfilename != "none"):
         for i in xrange(len(value)):
           grouped_sc_TEs[i] = TEgroups[value[i]]
-      ins_TE, support = most_common(grouped_sc_TEs)
+      sc_TE[key], sc_count[key] = most_common(grouped_sc_TEs)
+      ins_TE = sc_TE[key]
+      support = 0
 
       if ((key, "left") in breakpoints):
         left_bp_split = breakpoints[(key, "left")].split('\t')
         left_bp = left_bp_split[2]
         chrom = left_bp_split[0]
-        clus = left_bp_split[1]
-        support = left_bp_split[3]
+        support += int(left_bp_split[3])
       else:
         left_bp = "NA"
 
@@ -172,11 +178,11 @@ def main(args):
         right_bp_split = breakpoints[(key, "right")].split('\t')
         right_bp = right_bp_split[2]
         chrom = right_bp_split[0]
-        clus = right_bp_split[1]
-        support = right_bp_split[3]
+        support += int(right_bp_split[3])
       else:
         right_bp = "NA"
 
+      clus = key
       TEmatch = "No"
       if (not (left_bp, right_bp, chrom) in bps):
           outputfiletowrite.append(chrom + '\t' + clus + '\t' + str(support) + '\t' + ins_TE + '\t' + left_bp + '\t' + right_bp + '\t' + both_align + '\t' + TEmatch + '\n')
@@ -185,16 +191,27 @@ def main(args):
   for key, value in dfmapped.iteritems(): # call reads with only discordant pairs aligning to TE
     if (key not in scmapped):
       both_align = "No"
-      cluster_range = cluster_ranges[key].split('\t')
-      chrom = cluster_range[0]
-      clus = cluster_range[1]
-      left_bp = cluster_range[2]
-      right_bp = cluster_range[3]
       grouped_dc_TEs = value
       if (groupedTEsfilename != "none"):
         for i in xrange(len(value)):
           grouped_dc_TEs[i] = TEgroups[value[i]]
       ins_TE, support = most_common(grouped_dc_TEs)
+
+      cluster_range = cluster_ranges[key].split('\t')
+      chrom = cluster_range[0]
+      clus = cluster_range[1]
+      left_bp = cluster_range[2]
+      right_bp = cluster_range[3]
+
+      if ((key, "left") in breakpoints):
+        left_bp_split = breakpoints[(key, "left")].split('\t')
+        left_bp = left_bp_split[2]
+        support += int(left_bp_split[3])
+
+      if ((key, "right") in breakpoints):
+        right_bp_split = breakpoints[(key, "right")].split('\t')
+        right_bp = right_bp_split[2]
+        support += int(right_bp_split[3])
 
       TEmatch = "No"
       if (not (left_bp, right_bp, chrom) in bps):
@@ -220,6 +237,22 @@ def main(args):
     outputfile.write(line)
 
   outputfile.close()
+
+  mapped_clust_file = open(mappeddiscfilename, 'w+')
+  mapped_clust_file.write("Cluster\tTE\tCount\n")
+  for clusnum, cluster_TE in dc_TE.iteritems():
+    cluster_count = dc_count[clusnum]
+    mapped_clust_file.write("%s\t%s\t%i\n" %(clusnum, cluster_TE, cluster_count))
+
+  mapped_clust_file.close()
+
+  mapped_sc_file = open(mappedscfilename, 'w+')
+  mapped_sc_file.write("Cluster\tTE\tCount\n")
+  for clusnum, cluster_TE in sc_TE.iteritems():
+    cluster_count = sc_count[clusnum]
+    mapped_sc_file.write("%s\t%s\t%i\n" %(clusnum, cluster_TE, cluster_count))
+
+  mapped_sc_file.close()
 
 if (__name__ == "__main__"):
   main(sys.argv)
