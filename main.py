@@ -165,7 +165,7 @@ def main(args):
     outputfile.write("Clustering discordant reads.." + '\n')
     outputfile.write(str(datetime.datetime.today()) + '\n')
 
-    cluster_discordant_pairs.main(["none", argdict["-db"], argdict["-rd"], argdict["-is"]])
+    cluster_discordant_pairs.main(["none", argdict["-db"], argdict["-rd"], argdict["-mc"], argdict["-is"]])
     argdict["-cf"] = "Results/%s.clusters.txt" % (os.path.splitext(os.path.basename(argdict["-db"]))[0])
     argdict["-cr"] = "Results/%s.clusters.ranges.txt" % (os.path.splitext(os.path.basename(argdict["-db"]))[0])
 
@@ -182,7 +182,7 @@ def main(args):
   if (not "-ss" in argdict or not "-bp" in argdict):
     outputfile.write("Mapping softclip reads to TE reference genome.." + '\n')
     outputfile.write(str(datetime.datetime.today()) + '\n')
-    extractsccommand = "python  %s/extract_softclips.py %s %s %s %s %s %s" % (argdict["-sd"], argdict["-bf"], argdict["-cr"], argdict["-rd"], argdict["-tr"], argdict["-st"], argdict["-mc"])
+    extractsccommand = "python  %s/extract_softclips.py %s %s %s %s %s %s 1 %s 30 10 2 0" % (argdict["-sd"], argdict["-bf"], argdict["-cr"], argdict["-rd"], argdict["-tr"], argdict["-st"], argdict["-mc"], argdict["-ms"])
     extractscproc = subprocess.Popen(extractsccommand, stdout=subprocess.PIPE, shell=True)
     argdict["-ss"] = "Scratch/%s.softclips.sam" % (basename)
     argdict["-bp"] = "Results/%s.breakpoints.txt" % (basename)
@@ -194,9 +194,11 @@ def main(args):
     extractscproc.wait()
 
   refinedoutputfilename = "Results/%s.refined.breakpoints.txt" % (basename)
+  mappedclustfilename = "Results/%s.mapped.clusters.txt" % (basename)
+  mappedscfilename = "Results/%s.mapped.softclips.txt" % (basename)
   outputfile.write("Comparing mapped cluster mates to mapped softclip sequences.." + '\n')
   outputfile.write(str(datetime.datetime.today()) + '\n')
-  compare_mapped_reads.main(["none", argdict["-cs"], argdict["-ss"], argdict["-bp"], refinedoutputfilename, argdict["-tg"], argdict["-cr"]])
+  compare_mapped_reads.main(["none", argdict["-cs"], argdict["-ss"], argdict["-bp"], refinedoutputfilename, argdict["-tg"], argdict["-cr"], mappedclustfilename, mappedscfilename])
 
   if (argdict["-d"] == True):
     outputfile.write("Removing temp data from scratch directory.." + '\n')
