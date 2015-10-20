@@ -88,8 +88,8 @@ def main(args):
       if (chrom not in cancerBP):
         cancerBP[chrom] = set()
       #if (line_sp[4] != "NA" and line_sp[5] != "NA" and line_sp[-1] == "Yes" and int(line_sp[2]) >= minscsup \
-      if ("SINE1/7SL" in TE_list or "L1" in TE_list or "L1HS" in TE_list):
-        if (int(line_sp[2]) >= minscsup and cluster in cancerBPclusters):
+      if ("SINE1/7SL" in TE_list or "L1" in TE_list):
+        if (int(line_sp[2]) >= minscsup): #and cluster in cancerBPclusters):
           cancerRBP.append(line)
         #if (line_sp[-1] == "No" and line_sp[-2] == "No"):
         if (line_sp[4] != "NA" and line_sp[5] != "NA"):
@@ -116,8 +116,8 @@ def main(args):
       if (chrom not in normalBP):
         normalBP[chrom] = set()
       #if (line_sp[4] != "NA" and line_sp[5] != "NA" and line_sp[-1] == "Yes" and int(line_sp[2]) >= minscsup \
-      if ("SINE1/7SL" in TE_list or "L1" in TE_list or "L1HS" in TE_list):
-        if (int(line_sp[2]) >= minscsup and cluster in normalBPclusters):
+      if ("SINE1/7SL" in TE_list or "L1" in TE_list):
+        if (int(line_sp[2]) >= minscsup): #and cluster in normalBPclusters):
           normalRBP.append(line)
         #if (line_sp[-1] == "No" and line_sp[-2] == "No"):
         if (line_sp[4] != "NA" and line_sp[5] != "NA"):
@@ -126,44 +126,6 @@ def main(args):
           normalBP[chrom].add((int(line_sp[4]) - scsrange, int(line_sp[4]) + scsrange))
         elif (line_sp[5] != "NA"):
           normalBP[chrom].add((int(line_sp[5]) - scsrange, int(line_sp[5]) + scsrange))
-
-#  print("\nReading %s..." % (cancerCRfilename))
-#  print(str(datetime.datetime.today()))
-#  with open(cancerCRfilename, 'r') as cancerCRfile:
-#    header = cancerCRfile.readline()
-#    file_size = os.stat(cancerCRfilename).st_size
-#    count = 0
-#    for line in cancerCRfile:
-#      count += len(line)
-#      sys.stdout.write("\r%i%%" % (int((count*100)/file_size)))
-#      sys.stdout.flush()
-#      line_sp = line.rstrip('\n').split('\t')
-#      chrom = line_sp[0]
-#      if (chrom not in cancerBP):
-#        cancerBP[chrom] = set()
-#      left_side = int(line_sp[2])
-#      right_side = int(line_sp[3])
-#      #center = (right_side + left_side)/2
-#      cancerBP[chrom].add((left_side - discsrange, right_side + discsrange))
-
-#  print("\nReading %s..." % (normalCRfilename))
-#  print(str(datetime.datetime.today()))
-#  with open(normalCRfilename, 'r') as normalCRfile:
-#    header = normalCRfile.readline()
-#    file_size = os.stat(normalCRfilename).st_size
-#    count = 0
-#    for line in normalCRfile:
-#      count += len(line)
-#      sys.stdout.write("\r%i%%" % (int((count*100)/file_size)))
-#      sys.stdout.flush()
-#      line_sp = line.rstrip('\n').split('\t')
-#      chrom = line_sp[0]
-#      if (chrom not in normalBP):
-#        normalBP[chrom] = set()
-#      left_side = int(line_sp[2])
-#      right_side = int(line_sp[3])
-#      #center = (right_side + left_side)/2
-#      normalBP[chrom].add((left_side - discsrange, right_side + discsrange))
 
   if (os.path.isfile(polymorphfilename)):
     print("\nReading %s..." % (polymorphfilename))
@@ -194,11 +156,11 @@ def main(args):
 
 
   overlapfile = open("Results/%s.overlaps.txt" % (patID), 'w+')
-  overlapfile.write("Chromosome\tCluster\tSupportingReads\tTEFamily\tLeftBP\tRightBP\tBoth_Align\tTEMatch\n")
+  overlapfile.write("Chromosome\tCluster\tSupportingReads\tTEFamily\tLeftBP\tRightBP\tSoftclip_Align\tDiscordant_Align\tTEMatch\n")
   normalonlyfile = open("Results/%s.normalonly.txt" % (patID), 'w+')
-  normalonlyfile.write("Chromosome\tCluster\tSupportingReads\tTEFamily\tLeftBP\tRightBP\tBoth_Align\tTEMatch\n")
+  normalonlyfile.write("Chromosome\tCluster\tSupportingReads\tTEFamily\tLeftBP\tRightBP\tSoftclip_Align\tDiscordant_Align\tTEMatch\n")
   canceronlyfile = open("Results/%s.canceronly.txt" % (patID), 'w+')
-  canceronlyfile.write("Chromosome\tCluster\tSupportingReads\tTEFamily\tLeftBP\tRightBP\tBoth_Align\tTEMatch\n")
+  canceronlyfile.write("Chromosome\tCluster\tSupportingReads\tTEFamily\tLeftBP\tRightBP\tSoftclip_Align\tDiscordant_Align\tTEMatch\n")
 
   overlapfiletowrite = {}
   appendpolymorphfile = open(polymorphfilename, 'a+')
@@ -229,22 +191,34 @@ def main(args):
           polymorphBP[(chrom, int(line_sp[5]))] = 1
         found = True
         break
+      if (line_sp[4] != "NA" and line_sp[5] != "NA"):
+        if ((normal_left_bp >= int(line_sp[4]) and normal_left_bp <= int(line_sp[5]))\
+            or (normal_right_bp >= int(line_sp[4]) and normal_right_bp <= int(line_sp[5]))):
+          overlapfiletowrite[(chrom, line_sp[4], line_sp[5])] = cancerRBP[i]
+          if (not (chrom, int(line_sp[4])) in polymorphBP):
+            appendpolymorphfile.write(cancerRBP[i])
+            polymorphBP[(chrom, int(line_sp[4]))] = 1
+          found = True
+          break
     if (not found):
       # Check for breakpoints in normal file
       if (line_sp[4] != "NA"):
-        rstart = int(line_sp[4]) - scsrange
+        rstart = int(line_sp[4])
         if (line_sp[5] != "NA"):
-          rend = int(line_sp[5]) + scsrange
+          rend = int(line_sp[5])
         else:
-          rend = int(line_sp[4]) + scsrange
+          rend = int(line_sp[4])
       else:
-        rstart = int(line_sp[5]) - scsrange
-        rend = int(line_sp[5]) + scsrange
+        rstart = int(line_sp[5])
+        rend = int(line_sp[5])
 
       if (rstart > rend):
         temp = rstart
         rstart = rend
         rend = temp
+
+      rstart -= scsrange
+      rend += scsrange
 
       temp_bam_proc = subprocess.Popen("samtools view -hb %s %s:%i-%i > temp.bam && samtools index temp.bam" % (norm_bam, chrom, rstart - int(avereaddepth), rend + int(avereaddepth)), shell=True, stdout=subprocess.PIPE)
       temp_bam_proc.wait()
@@ -273,6 +247,9 @@ def main(args):
         elif (line_sp[5] != "NA" and int(line_sp[5]) >= temp_bps[k][1] - 5 \
             and int(line_sp[5]) <= temp_bps[k][1] + 5):
           poly = True
+        if (line_sp[4] != "NA" and line_sp[5] != "NA"):
+          if (temp_bps[k][1] >= line_sp[4] and temp_bps[k][1] <= line_sp[5]):
+            poly = True
 
       if (not poly):
         canceronlyfile.write(cancerRBP[i])
@@ -305,22 +282,35 @@ def main(args):
           polymorphBP[(chrom, int(line_sp[5]))] = 1
         found = True
         break
+      # Check if breakpoints are between
+      if (line_sp[4] != "NA" and line_sp[5] != "NA"):
+        if ((cancer_left_bp >= int(line_sp[4]) and cancer_left_bp <= int(line_sp[5]))\
+            or (cancer_right_bp >= int(line_sp[4]) and cancer_right_bp <= int(line_sp[5]))):
+          overlapfiletowrite[(chrom, line_sp[4], line_sp[5])] = normalRBP[i]
+          if (not (chrom, int(line_sp[4])) in polymorphBP):
+            appendpolymorphfile.write(normalRBP[i])
+            polymorphBP[(chrom, int(line_sp[4]))] = 1
+          found = True
+          break
     if (not found):
       # Check for breakpoints in cancer file
       if (line_sp[4] != "NA"):
-        rstart = int(line_sp[4]) - scsrange
+        rstart = int(line_sp[4])
         if (line_sp[5] != "NA"):
-          rend = int(line_sp[5]) + scsrange
+          rend = int(line_sp[5])
         else:
-          rend = int(line_sp[4]) + scsrange
+          rend = int(line_sp[4])
       else:
-        rstart = int(line_sp[5]) - scsrange
-        rend = int(line_sp[5]) + scsrange
+        rstart = int(line_sp[5])
+        rend = int(line_sp[5])
 
       if (rstart > rend):
         temp = rstart
         rstart = rend
         rend = temp
+
+      rstart -= scsrange
+      rend += scsrange
 
       temp_bam_proc = subprocess.Popen("samtools view -hb %s %s:%i-%i > temp.bam 2> sam.err && samtools index temp.bam" % (cancer_bam, chrom, rstart - int(avereaddepth), rend + int(avereaddepth)), shell=True, stdout=subprocess.PIPE)
       temp_bam_proc.wait()
@@ -349,6 +339,9 @@ def main(args):
         elif (line_sp[5] != "NA" and int(line_sp[5]) >= temp_bps[k][1] - 5 \
             and int(line_sp[5]) <= temp_bps[k][1] + 5):
           poly = True
+        if (line_sp[4] != "NA" and line_sp[5] != "NA"):
+          if (temp_bps[k][1] >= line_sp[4] and temp_bps[k][1] <= line_sp[5]):
+            poly = True
 
       if (not poly):
         normalonlyfile.write(normalRBP[i])
