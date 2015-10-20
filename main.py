@@ -41,7 +41,7 @@ def parseArgs(sysargs):
             -bp [Path/to/Breakpoints.txt] (will be created if left empty)\n \
             -tg [Path/to/TEGroups.txt]  File with tab seperate groups of similar TEs (optional)\n \
             -rd <int> default:50   Average read depth (used for filtering sections of abnormally large read depth)\n \
-            -mc <int> default:3    Minimum cluster size for discordant reads\n \
+            -mc <int> default:5    Minimum cluster size for discordant reads\n \
             -ms <int> default:3    Minimum softclips supporting a breakpoint\n \
             -st <int> default:1    Number of threads for sorting\n \
             -sm <int>(bytes) default: 1073741824 (1 GB) Amount of memory per thread used in sorting\n \
@@ -51,7 +51,7 @@ def parseArgs(sysargs):
   args = {}
   # Default values
   args["-rd"] = 50
-  args["-mc"] = 3
+  args["-mc"] = 5
   args["-ms"] = 3
   args["-st"] = 1
   args["-sm"] = 1073741824
@@ -198,7 +198,7 @@ def main(args):
   mappedscfilename = "Results/%s.mapped.softclips.txt" % (basename)
   outputfile.write("Comparing mapped cluster mates to mapped softclip sequences.." + '\n')
   outputfile.write(str(datetime.datetime.today()) + '\n')
-  compare_mapped_reads.main(["none", argdict["-cs"], argdict["-ss"], argdict["-bp"], refinedoutputfilename, argdict["-tg"], argdict["-cr"], mappedclustfilename, mappedscfilename])
+  compare_mapped_reads.main(["none", argdict["-cs"], argdict["-ss"], argdict["-bp"], refinedoutputfilename, argdict["-tg"], argdict["-cr"], mappedclustfilename, mappedscfilename, str(int(argdict["-ms"]) + int(argdict["-mc"]))])
 
   if (argdict["-d"] == True):
     outputfile.write("Removing temp data from scratch directory.." + '\n')
