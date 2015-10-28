@@ -91,9 +91,6 @@ def main(args):
                   else:
                     leftscseqs[scpos] = []
                     leftscseqs[scpos].append(read.seq[:sclen])
-                else:
-                  if (False):
-                    print "{0} : {1}".format(scpos, ave)
             if (read.cigar[-1][0] == softclipID):
               sclen = read.cigar[-1][1]
               scpos = read.pos + read.rlen - sclen + 1
@@ -107,9 +104,6 @@ def main(args):
                   else:
                     rightscseqs[scpos] = []
                     rightscseqs[scpos].append(read.seq[-sclen:])
-                else:
-                  if (scpos == 213291382):
-                    print "{0} : {1}".format(scpos, ave)
         count += 1
         if (count >= maxdepth):
           largedepth = True
