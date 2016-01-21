@@ -14,6 +14,7 @@ def main(args):
   mappeddiscfilename = args[7]
   mappedscfilename = args[8]
   minsupport = int(args[9])
+  calldisconly = int(args[10])
 
   dfmapped = {}
   scmapped = {}
@@ -200,39 +201,40 @@ def main(args):
           outputfiletowrite.append(chrom + '\t' + clus + '\t' + str(support) + '\t' + ins_TE + '\t' + left_bp + '\t' + right_bp + '\t' + has_bp + '\t' + sc_align + '\t' + dc_align + '\t' + TEmatch + '\n')
           bps[(left_bp, right_bp, chrom)] = 1
 
-  for key, value in dfmapped.iteritems(): # call reads with only discordant pairs aligning to TE
-    if (key not in scmapped):
-      has_bp = "No"
-      sc_align = "No"
-      dc_align = "Yes"
-      grouped_dc_TEs = value
-      if (groupedTEsfilename != "none"):
-        for i in xrange(len(value)):
-          grouped_dc_TEs[i] = TEgroups[value[i]]
-      ins_TE, support = most_common(grouped_dc_TEs)
+  if (calldisconly):
+    for key, value in dfmapped.iteritems(): # call reads with only discordant pairs aligning to TE
+      if (key not in scmapped):
+        has_bp = "No"
+        sc_align = "No"
+        dc_align = "Yes"
+        grouped_dc_TEs = value
+        if (groupedTEsfilename != "none"):
+          for i in xrange(len(value)):
+            grouped_dc_TEs[i] = TEgroups[value[i]]
+        ins_TE, support = most_common(grouped_dc_TEs)
 
-      cluster_range = cluster_ranges[key].split('\t')
-      chrom = cluster_range[0]
-      clus = cluster_range[1]
-      left_bp = cluster_range[2]
-      right_bp = cluster_range[3]
+        cluster_range = cluster_ranges[key].split('\t')
+        chrom = cluster_range[0]
+        clus = cluster_range[1]
+        left_bp = cluster_range[2]
+        right_bp = cluster_range[3]
 
-      if ((key, "left") in breakpoints):
-        left_bp_split = breakpoints[(key, "left")].split('\t')
-        #left_bp = left_bp_split[2]
-        support += int(left_bp_split[3])
-        has_bp = "Yes"
+        if ((key, "left") in breakpoints):
+          left_bp_split = breakpoints[(key, "left")].split('\t')
+          #left_bp = left_bp_split[2]
+          support += int(left_bp_split[3])
+          has_bp = "Yes"
 
-      if ((key, "right") in breakpoints):
-        right_bp_split = breakpoints[(key, "right")].split('\t')
-        #right_bp = right_bp_split[2]
-        support += int(right_bp_split[3])
-        has_bp = "Yes"
+        if ((key, "right") in breakpoints):
+          right_bp_split = breakpoints[(key, "right")].split('\t')
+          #right_bp = right_bp_split[2]
+          support += int(right_bp_split[3])
+          has_bp = "Yes"
 
-      TEmatch = "No"
-      if (not (left_bp, right_bp, chrom) in bps and support >= minsupport):
-          outputfiletowrite.append(chrom + '\t' + clus + '\t' + str(support) + '\t' + ins_TE + '\t' + left_bp + '\t' + right_bp + '\t' + has_bp + '\t' + sc_align + '\t' + dc_align + '\t' + TEmatch + '\n')
-          bps[(left_bp, right_bp, chrom)] = 1
+        TEmatch = "No"
+        if (not (left_bp, right_bp, chrom) in bps and support >= minsupport):
+            outputfiletowrite.append(chrom + '\t' + clus + '\t' + str(support) + '\t' + ins_TE + '\t' + left_bp + '\t' + right_bp + '\t' + has_bp + '\t' + sc_align + '\t' + dc_align + '\t' + TEmatch + '\n')
+            bps[(left_bp, right_bp, chrom)] = 1
 
   outputfiletowrite = sorted(list(set(outputfiletowrite)), key=lambda x: int(x.split('\t')[1]))
 
