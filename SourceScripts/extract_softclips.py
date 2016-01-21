@@ -4,9 +4,9 @@ import os.path
 import sys
 import itertools
 import subprocess
+from multiprocessing import Process, Queue
 
 def main(args):
-  bamfile = pysam.Samfile(args[1], 'rb')
   basename = os.path.splitext(os.path.basename(args[1]))[0]
   rangefilename = args[2]
   avereaddepth = int(args[3])
@@ -40,15 +40,12 @@ def main(args):
   minsearchrange = avereaddepth # minimum range to search from clusters
   maxsearchrange = avereaddepth*6 # maximum search range from clusters (will use middle range if too large)
 
-  leftscseqs = {}
-  rightscseqs = {}
-
-  with open(rangefilename, 'r') as rangefile:
-    header = rangefile.readline() # first line is a header
-    for line in rangefile:
-      leftscseqs.clear()
-      rightscseqs.clear()
-
+  def threadedExtract(range_lines, results_queue, thread_num, bamfile, reportallbps):
+    results = ["", "", ""]
+    range_lines = range_lines.split('\n')[:-1]
+    for line in range_lines:
+      leftscseqs = {}
+      rightscseqs = {}
       ranges = line.split('\t')
       clustsize = int(ranges[4])
       if (clustsize < minclustsize):
@@ -61,10 +58,10 @@ def main(args):
       if (searchrange < minsearchrange):
         rstart -= (minsearchrange - searchrange)/2
         rend += (minsearchrange - searchrange)/2
-#      elif (searchrange > maxsearchrange):
-#        mid = (rend + rstart)/2
-#        rstart = mid - maxsearchrange/2
-#        rend = mid + maxsearchrange/2
+  #      elif (searchrange > maxsearchrange):
+  #        mid = (rend + rstart)/2
+  #        rstart = mid - maxsearchrange/2
+  #        rend = mid + maxsearchrange/2
 
       rstart = max(rstart, 1) # make sure start range is not negative
       searchrange = rend - rstart
@@ -110,7 +107,7 @@ def main(args):
           break
 
       if (largedepth):
-        skippedclusters.write("%s:%i-%i\t%s\n" % (chrom, rstart, rend, clusnum))
+        results[2] += "%s:%i-%i\t%s\n" % (chrom, rstart, rend, clusnum)
         continue
 
       if (not reportallbps):
@@ -158,33 +155,84 @@ def main(args):
           if (leftmaxseqs > 0):
             seqs = leftscseqs[leftscpos]
             for i in xrange(len(seqs)):
-              scfile.write(">leftsc%i:%s\n%s\n" % (i, clusnum, seqs[i]))
-            bpfile.write(chrom + '\t' + str(clusnum) + '\t' + str(leftscpos) + '\t' + str(maxseqs) + '\t' + str(coverage) + '\tleft\n')
+              results[0] += ">leftsc%i:%s\n%s\n" % (i, clusnum, seqs[i])
+            results[1] += chrom + '\t' + str(clusnum) + '\t' + str(leftscpos) + '\t' + str(maxseqs) + '\t' + str(coverage) + '\tleft\n'
 
           if (rightmaxseqs > 0):
             seqs = rightscseqs[rightscpos]
             for i in xrange(len(seqs)):
-              scfile.write(">rightsc%i:%s\n%s\n" % (i, clusnum, seqs[i]))
-            bpfile.write(chrom + '\t' + str(clusnum) + '\t' + str(rightscpos) + '\t' + str(maxseqs) + '\t' + str(coverage) + '\tright\n')
+              results[0] += ">rightsc%i:%s\n%s\n" % (i, clusnum, seqs[i])
+            results[1] += chrom + '\t' + str(clusnum) + '\t' + str(rightscpos) + '\t' + str(maxseqs) + '\t' + str(coverage) + '\tright\n'
       # if all the breakpoints are to be reported..
       else:
         coverage = 0
         j = 0
         for pos, seqs in leftscseqs.iteritems():
           for i in xrange(len(seqs)):
-            scfile.write(">leftsc%i:%s.%i\n%s\n" % (i, clusnum, j, seqs[i]))
-          bpfile.write(chrom + '\t' + str(clusnum) + '.' + str(j) + '\t' + str(pos) + '\t' + str(len(seqs)) + '\t' + str(coverage) + '\tleft\n')
+            results[0] += ">leftsc%i:%s.%i\n%s\n" % (i, clusnum, j, seqs[i])
+          results[1] += chrom + '\t' + str(clusnum) + '.' + str(j) + '\t' + str(pos) + '\t' + str(len(seqs)) + '\t' + str(coverage) + '\tleft\n'
           j += 1
 
         for pos, seqs in rightscseqs.iteritems():
           for i in xrange(len(seqs)):
-            scfile.write(">rightsc%i:%s.%i\n%s\n" % (i, clusnum, j, seqs[i]))
-          bpfile.write(chrom + '\t' + str(clusnum) + '.' + str(j) + '\t' + str(pos) + '\t' + str(len(seqs)) + '\t' + str(coverage) + '\tright\n')
+            results[0] += ">rightsc%i:%s.%i\n%s\n" % (i, clusnum, j, seqs[i])
+          results[1] += chrom + '\t' + str(clusnum) + '.' + str(j) + '\t' + str(pos) + '\t' + str(len(seqs)) + '\t' + str(coverage) + '\tright\n'
           j += 1
 
+    results_queue.put(results)
+
+  bamfile_handles = []
+  for i in xrange(int(numthreads)):
+    bamfile_handles.append(pysam.Samfile(args[1], 'rb'))
+
+  with open(rangefilename, 'r') as rangefile:
+    for i, l in enumerate(rangefile):
+      pass
+  num_lines = i + 1
+
+  with open(rangefilename, 'r') as rangefile:
+    header = rangefile.readline() # first line is a header
+    eof = False
+    line_num = 0
+    lines = [""] * int(numthreads)
+    for i in xrange(int(numthreads)):
+      try:
+        for j in xrange(num_lines / (int(numthreads)) + (num_lines % int(numthreads)) / int(numthreads) + 1):
+          lines[i] += rangefile.next()
+          line_num += 1
+      except StopIteration:
+        eof = True
+        break
+
+    threads = []
+    results_queue = Queue()
+
+    #print "Starting threads %i-%i" % (line_num - int(numthreads), line_num)
+    for i in xrange(int(numthreads)):
+      threads.append(Process(target=threadedExtract, args=(lines[i], results_queue, i, bamfile_handles[i], reportallbps)))
+      threads[i].start()
+
+    scfile_to_write = ""
+    bpfile_to_write = ""
+    skipped_to_write = ""
+    for i in xrange(int(numthreads)):
+      results = results_queue.get()
+      scfile_to_write += results[0]
+      bpfile_to_write += results[1]
+      skipped_to_write += results[2]
+
+    for i in xrange(int(numthreads)):
+      threads[i].join()
+
+    #print "Joined threads %i-%i" % (line_num - int(numthreads), line_num)
+
+    scfile.write(scfile_to_write)
+    bpfile.write(bpfile_to_write)
+    skippedclusters.write(skipped_to_write)
 
   bpfile.close()
-  bamfile.close()
+  for i in xrange(int(numthreads)):
+    bamfile_handles[i].close()
   skippedclusters.close()
   scfile.close()
 
