@@ -19,6 +19,7 @@ def main(args):
   norm_bam = args[9]
   TEReffilename = args[10]
   avereaddepth = args[11]
+  allow_disconly = int(args[12])
 
   cancerRBP = []
   cancerBP = {}
@@ -52,6 +53,8 @@ def main(args):
       if (chrom not in cancerBP):
         cancerBP[chrom] = set()
       cancerBP[chrom].add((int(line_sp[2]) - scsrange, int(line_sp[2]) + scsrange))
+  sys.stdout.write("\r100%")
+  sys.stdout.flush()
 
   print("\nReading %s..." % (normalBPfilename))
   print(str(datetime.datetime.today()))
@@ -70,6 +73,8 @@ def main(args):
       if (chrom not in normalBP):
         normalBP[chrom] = set()
       normalBP[chrom].add((int(line_sp[2]) - scsrange, int(line_sp[2]) + scsrange))
+  sys.stdout.write("\r100%")
+  sys.stdout.flush()
 
   print("\nReading %s..." % (cancerRBPfilename))
   print(str(datetime.datetime.today()))
@@ -85,19 +90,23 @@ def main(args):
       TE_list = line_sp[3].split(',')
       cluster = line_sp[1]
       chrom = line_sp[0]
+      has_bp = line_sp[6]
       if (chrom not in cancerBP):
         cancerBP[chrom] = set()
       #if (line_sp[4] != "NA" and line_sp[5] != "NA" and line_sp[-1] == "Yes" and int(line_sp[2]) >= minscsup \
-      if ("SINE1/7SL" in TE_list or "L1" in TE_list):
-        if (int(line_sp[2]) >= minscsup): #and cluster in cancerBPclusters):
-          cancerRBP.append(line)
-        #if (line_sp[-1] == "No" and line_sp[-2] == "No"):
-        if (line_sp[4] != "NA" and line_sp[5] != "NA"):
-          cancerBP[chrom].add((int(line_sp[4]) - scsrange, int(line_sp[5]) + scsrange))
-        elif (line_sp[4] != "NA"):
-          cancerBP[chrom].add((int(line_sp[4]) - scsrange, int(line_sp[4]) + scsrange))
-        elif (line_sp[5] != "NA"):
-          cancerBP[chrom].add((int(line_sp[5]) - scsrange, int(line_sp[5]) + scsrange))
+      if (has_bp == "Yes" or allow_disconly):
+        if ("SINE1/7SL" in TE_list or "L1" in TE_list):
+          if (int(line_sp[2]) >= minscsup): #and cluster in cancerBPclusters):
+            cancerRBP.append(line)
+          #if (line_sp[-1] == "No" and line_sp[-2] == "No"):
+          if (line_sp[4] != "NA" and line_sp[5] != "NA"):
+            cancerBP[chrom].add((int(line_sp[4]) - scsrange, int(line_sp[5]) + scsrange))
+          elif (line_sp[4] != "NA"):
+            cancerBP[chrom].add((int(line_sp[4]) - scsrange, int(line_sp[4]) + scsrange))
+          elif (line_sp[5] != "NA"):
+            cancerBP[chrom].add((int(line_sp[5]) - scsrange, int(line_sp[5]) + scsrange))
+  sys.stdout.write("\r100%")
+  sys.stdout.flush()
 
   print("\nReading %s..." % (normalRBPfilename))
   print(str(datetime.datetime.today()))
@@ -113,19 +122,23 @@ def main(args):
       TE_list = line_sp[3].split(',')
       cluster = line_sp[1]
       chrom = line_sp[0]
+      has_bp = line_sp[6]
       if (chrom not in normalBP):
         normalBP[chrom] = set()
       #if (line_sp[4] != "NA" and line_sp[5] != "NA" and line_sp[-1] == "Yes" and int(line_sp[2]) >= minscsup \
-      if ("SINE1/7SL" in TE_list or "L1" in TE_list):
-        if (int(line_sp[2]) >= minscsup): #and cluster in normalBPclusters):
-          normalRBP.append(line)
-        #if (line_sp[-1] == "No" and line_sp[-2] == "No"):
-        if (line_sp[4] != "NA" and line_sp[5] != "NA"):
-          normalBP[chrom].add((int(line_sp[4]) - scsrange, int(line_sp[5]) + scsrange))
-        elif (line_sp[4] != "NA"):
-          normalBP[chrom].add((int(line_sp[4]) - scsrange, int(line_sp[4]) + scsrange))
-        elif (line_sp[5] != "NA"):
-          normalBP[chrom].add((int(line_sp[5]) - scsrange, int(line_sp[5]) + scsrange))
+      if (has_bp == "Yes" or allow_disconly):
+        if ("SINE1/7SL" in TE_list or "L1" in TE_list):
+          if (int(line_sp[2]) >= minscsup): #and cluster in normalBPclusters):
+            normalRBP.append(line)
+          #if (line_sp[-1] == "No" and line_sp[-2] == "No"):
+          if (line_sp[4] != "NA" and line_sp[5] != "NA"):
+            normalBP[chrom].add((int(line_sp[4]) - scsrange, int(line_sp[5]) + scsrange))
+          elif (line_sp[4] != "NA"):
+            normalBP[chrom].add((int(line_sp[4]) - scsrange, int(line_sp[4]) + scsrange))
+          elif (line_sp[5] != "NA"):
+            normalBP[chrom].add((int(line_sp[5]) - scsrange, int(line_sp[5]) + scsrange))
+  sys.stdout.write("\r100%")
+  sys.stdout.flush()
 
   if (os.path.isfile(polymorphfilename)):
     print("\nReading %s..." % (polymorphfilename))
@@ -156,11 +169,11 @@ def main(args):
 
 
   overlapfile = open("Results/%s.overlaps.txt" % (patID), 'w+')
-  overlapfile.write("Chromosome\tCluster\tSupportingReads\tTEFamily\tLeftBP\tRightBP\tSoftclip_Align\tDiscordant_Align\tTEMatch\n")
+  overlapfile.write("Chromosome\tCluster\tSupportingReads\tTEFamily\tLeftBP\tRightBP\tHas_BP\tSoftclip_Align\tDiscordant_Align\tTEMatch\n")
   normalonlyfile = open("Results/%s.normalonly.txt" % (patID), 'w+')
-  normalonlyfile.write("Chromosome\tCluster\tSupportingReads\tTEFamily\tLeftBP\tRightBP\tSoftclip_Align\tDiscordant_Align\tTEMatch\n")
+  normalonlyfile.write("Chromosome\tCluster\tSupportingReads\tTEFamily\tLeftBP\tRightBP\tHas_BP\tSoftclip_Align\tDiscordant_Align\tTEMatch\n")
   canceronlyfile = open("Results/%s.canceronly.txt" % (patID), 'w+')
-  canceronlyfile.write("Chromosome\tCluster\tSupportingReads\tTEFamily\tLeftBP\tRightBP\tSoftclip_Align\tDiscordant_Align\tTEMatch\n")
+  canceronlyfile.write("Chromosome\tCluster\tSupportingReads\tTEFamily\tLeftBP\tRightBP\tHas_BP\tSoftclip_Align\tDiscordant_Align\tTEMatch\n")
 
   overlapfiletowrite = {}
   appendpolymorphfile = open(polymorphfilename, 'a+')
@@ -173,33 +186,34 @@ def main(args):
     line_sp = cancerRBP[i].rstrip('\n').split('\t')
     chrom = line_sp[0]
     found = False
-    bp_list = list(normalBP[chrom])
-    for j in xrange(len(bp_list)):
-      normal_left_bp = bp_list[j][0]
-      normal_right_bp = bp_list[j][1]
-      if (line_sp[4] != "NA" and int(line_sp[4]) >= normal_left_bp and int(line_sp[4]) <= normal_right_bp):
-        overlapfiletowrite[(chrom, line_sp[4], line_sp[5])] = cancerRBP[i]
-        if (not (chrom, int(line_sp[4])) in polymorphBP):
-          appendpolymorphfile.write(cancerRBP[i])
-          polymorphBP[(chrom, int(line_sp[4]))] = 1
-        found = True
-        break
-      elif (line_sp[5] != "NA" and int(line_sp[5]) >= normal_left_bp and int(line_sp[5]) <= normal_right_bp):
-        overlapfiletowrite[(chrom, line_sp[4], line_sp[5])] = cancerRBP[i]
-        if (not (chrom, int(line_sp[5])) in polymorphBP):
-          appendpolymorphfile.write(cancerRBP[i])
-          polymorphBP[(chrom, int(line_sp[5]))] = 1
-        found = True
-        break
-      if (line_sp[4] != "NA" and line_sp[5] != "NA"):
-        if ((normal_left_bp >= int(line_sp[4]) and normal_left_bp <= int(line_sp[5]))\
-            or (normal_right_bp >= int(line_sp[4]) and normal_right_bp <= int(line_sp[5]))):
+    if (chrom in normalBP):
+      bp_list = list(normalBP[chrom])
+      for j in xrange(len(bp_list)):
+        normal_left_bp = bp_list[j][0]
+        normal_right_bp = bp_list[j][1]
+        if (line_sp[4] != "NA" and int(line_sp[4]) >= normal_left_bp and int(line_sp[4]) <= normal_right_bp):
           overlapfiletowrite[(chrom, line_sp[4], line_sp[5])] = cancerRBP[i]
           if (not (chrom, int(line_sp[4])) in polymorphBP):
             appendpolymorphfile.write(cancerRBP[i])
             polymorphBP[(chrom, int(line_sp[4]))] = 1
           found = True
           break
+        elif (line_sp[5] != "NA" and int(line_sp[5]) >= normal_left_bp and int(line_sp[5]) <= normal_right_bp):
+          overlapfiletowrite[(chrom, line_sp[4], line_sp[5])] = cancerRBP[i]
+          if (not (chrom, int(line_sp[5])) in polymorphBP):
+            appendpolymorphfile.write(cancerRBP[i])
+            polymorphBP[(chrom, int(line_sp[5]))] = 1
+          found = True
+          break
+        if (line_sp[4] != "NA" and line_sp[5] != "NA"):
+          if ((normal_left_bp >= int(line_sp[4]) and normal_left_bp <= int(line_sp[5]))\
+              or (normal_right_bp >= int(line_sp[4]) and normal_right_bp <= int(line_sp[5]))):
+            overlapfiletowrite[(chrom, line_sp[4], line_sp[5])] = cancerRBP[i]
+            if (not (chrom, int(line_sp[4])) in polymorphBP):
+              appendpolymorphfile.write(cancerRBP[i])
+              polymorphBP[(chrom, int(line_sp[4]))] = 1
+            found = True
+            break
     if (not found):
       # Check for breakpoints in normal file
       if (line_sp[4] != "NA"):
@@ -255,6 +269,8 @@ def main(args):
         canceronlyfile.write(cancerRBP[i])
       else:
         overlapfiletowrite[(chrom, line_sp[4], line_sp[5])] = cancerRBP[i]
+  sys.stdout.write("\r100%")
+  sys.stdout.flush()
 
   print("\nComparing normal breakpoints to cancer breakpoints...")
   print(str(datetime.datetime.today()))
@@ -264,34 +280,35 @@ def main(args):
     line_sp = normalRBP[i].rstrip('\n').split('\t')
     chrom = line_sp[0]
     found = False
-    bp_list = list(cancerBP[chrom])
-    for j in xrange(len(cancerBP[chrom])):
-      cancer_left_bp = bp_list[j][0]
-      cancer_right_bp = bp_list[j][1]
-      if (line_sp[4] != "NA" and int(line_sp[4]) >= cancer_left_bp and int(line_sp[4]) <= cancer_right_bp):
-        overlapfiletowrite[(chrom, line_sp[4], line_sp[5])] = normalRBP[i]
-        if (not (chrom, int(line_sp[4])) in polymorphBP):
-          appendpolymorphfile.write(normalRBP[i])
-          polymorphBP[(chrom, int(line_sp[4]))] = 1
-        found = True
-        break
-      elif (line_sp[5] != "NA" and int(line_sp[5]) >= cancer_left_bp and int(line_sp[5]) <= cancer_right_bp):
-        overlapfiletowrite[(chrom, line_sp[4], line_sp[5])] = normalRBP[i]
-        if (not (chrom, int(line_sp[5])) in polymorphBP):
-          appendpolymorphfile.write(normalRBP[i])
-          polymorphBP[(chrom, int(line_sp[5]))] = 1
-        found = True
-        break
-      # Check if breakpoints are between
-      if (line_sp[4] != "NA" and line_sp[5] != "NA"):
-        if ((cancer_left_bp >= int(line_sp[4]) and cancer_left_bp <= int(line_sp[5]))\
-            or (cancer_right_bp >= int(line_sp[4]) and cancer_right_bp <= int(line_sp[5]))):
+    if (chrom in cancerBP):
+      bp_list = list(cancerBP[chrom])
+      for j in xrange(len(bp_list)):
+        cancer_left_bp = bp_list[j][0]
+        cancer_right_bp = bp_list[j][1]
+        if (line_sp[4] != "NA" and int(line_sp[4]) >= cancer_left_bp and int(line_sp[4]) <= cancer_right_bp):
           overlapfiletowrite[(chrom, line_sp[4], line_sp[5])] = normalRBP[i]
           if (not (chrom, int(line_sp[4])) in polymorphBP):
             appendpolymorphfile.write(normalRBP[i])
             polymorphBP[(chrom, int(line_sp[4]))] = 1
           found = True
           break
+        elif (line_sp[5] != "NA" and int(line_sp[5]) >= cancer_left_bp and int(line_sp[5]) <= cancer_right_bp):
+          overlapfiletowrite[(chrom, line_sp[4], line_sp[5])] = normalRBP[i]
+          if (not (chrom, int(line_sp[5])) in polymorphBP):
+            appendpolymorphfile.write(normalRBP[i])
+            polymorphBP[(chrom, int(line_sp[5]))] = 1
+          found = True
+          break
+        # Check if breakpoints are between
+        if (line_sp[4] != "NA" and line_sp[5] != "NA"):
+          if ((cancer_left_bp >= int(line_sp[4]) and cancer_left_bp <= int(line_sp[5]))\
+              or (cancer_right_bp >= int(line_sp[4]) and cancer_right_bp <= int(line_sp[5]))):
+            overlapfiletowrite[(chrom, line_sp[4], line_sp[5])] = normalRBP[i]
+            if (not (chrom, int(line_sp[4])) in polymorphBP):
+              appendpolymorphfile.write(normalRBP[i])
+              polymorphBP[(chrom, int(line_sp[4]))] = 1
+            found = True
+            break
     if (not found):
       # Check for breakpoints in cancer file
       if (line_sp[4] != "NA"):
@@ -347,6 +364,8 @@ def main(args):
         normalonlyfile.write(normalRBP[i])
       else:
         overlapfiletowrite[(chrom, line_sp[4], line_sp[5])] = normalRBP[i]
+  sys.stdout.write("\r100%")
+  sys.stdout.flush()
 
   print("\nWriting overlaps to file...")
   print(str(datetime.datetime.today()))
