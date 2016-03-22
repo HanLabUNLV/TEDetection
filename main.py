@@ -56,6 +56,7 @@ def parseArgs(sysargs):
   args["-mc"] = 5
   args["-ms"] = 3
   args["-mp"] = 25
+  args["-do"] = 1
   args["-st"] = 1
   args["-sm"] = 1073741824
   args["-d"] = False

@@ -31,6 +31,7 @@ def main(args):
     mask = 1 << offset
     return(int_type & mask)
 
+  """
   # Count the most common TE
   def most_common(L):
     # get sorted list with iterable pairs
@@ -51,6 +52,10 @@ def main(args):
     max_item = max(groups, key=_auxfun)[0]
     count = counts[max_item]
     return max_item, count
+  """
+
+  def count(L):
+    return sorted([(x, L.count(x)) for x in set(L)], key=lambda x: x[1], reverse=True)
 
   if (groupedTEsfilename != "none"):
     with open(groupedTEsfilename, 'r') as groupedTEsfile:
@@ -112,7 +117,7 @@ def main(args):
       cluster_ranges[line_sp[1]] = line.rstrip('\n')
 
   outputfile = open(outputfilename, 'w')
-  header = "Chromosome\tCluster\tSupportingReads\tTEFamily\tLeftBP\tRightBP\tHas_BP\tSoftclip_Align\tDiscordant_Align\tTEMatch\n"
+  header = "Chromosome\tCluster\tSupportingReads\tTEFamily\tLeftBP\tRightBP\tHas_BP\tSoftclip_Align\tDiscordant_Align\tTEMatch\tSubFamily\n"
   outputfile.write(header)
   outputfiletowrite = []
   bps = {}
@@ -129,13 +134,19 @@ def main(args):
       sc_align = "Yes"
       dc_align = "Yes"
       TEmatch = "Yes"
+      #subFam, subCount = most_common(dfmapped[key])
+      subFam = ','.join(['{0} {1}'.format(x,y) for x,y in count(dfmapped[key])])
       if (groupedTEsfilename != "none"):
-        for i in xrange(len(value)):
-          grouped_sc_TEs[i] = TEgroups[value[i]]
-        for i in xrange(len(dfmapped[key])):
-          grouped_dc_TEs[i] = TEgroups[dfmapped[key][i]]
-      sc_TE[key], sc_count[key] = most_common(grouped_sc_TEs)
-      dc_TE[key], dc_count[key] = most_common(grouped_dc_TEs)
+        #for i in xrange(len(value)):
+          #grouped_sc_TEs[i] = TEgroups[value[i]]
+        grouped_sc_TEs = [TEgroups[i] for i in value]
+        #for i in xrange(len(dfmapped[key])):
+          #grouped_dc_TEs[i] = TEgroups[dfmapped[key][i]]
+        grouped_dc_TEs = [TEgroups[i] for i in dfmapped[key]]
+      sc_common = count(grouped_sc_TEs)
+      dc_common = count(grouped_dc_TEs)
+      sc_TE[key], sc_count[key] = sc_common[0]
+      dc_TE[key], dc_count[key] = dc_common[0]
       if (sc_TE[key] != dc_TE[key]):
         TEmatch = "No"
       support = dc_count[key]
@@ -162,7 +173,7 @@ def main(args):
       clus = key
 
       if (not (left_bp, right_bp, chrom) in bps and support >= minsupport):
-        outputfiletowrite.append(chrom + '\t' + clus + '\t' + str(support) + '\t' + ins_TE + '\t' + left_bp + '\t' + right_bp + '\t' + has_bp + '\t' + sc_align + '\t' + dc_align + '\t' + TEmatch + '\n')
+        outputfiletowrite.append(chrom + '\t' + clus + '\t' + str(support) + '\t' + ins_TE + '\t' + left_bp + '\t' + right_bp + '\t' + has_bp + '\t' + sc_align + '\t' + dc_align + '\t' + TEmatch + '\t' + subFam + '\n')
         bps[(left_bp, right_bp, chrom)] = 1
 
     else: # If no discordant reads mapped to anything
@@ -170,10 +181,14 @@ def main(args):
       dc_align = "No"
       sc_align = "Yes"
       grouped_sc_TEs = value
+      #subFam, subCount = most_common(value)
+      subFam = ','.join(['{0} {1}'.format(x,y) for x,y in count(value)])
       if (groupedTEsfilename != "none"):
-        for i in xrange(len(value)):
-          grouped_sc_TEs[i] = TEgroups[value[i]]
-      sc_TE[key], sc_count[key] = most_common(grouped_sc_TEs)
+        #for i in xrange(len(value)):
+          #grouped_sc_TEs[i] = TEgroups[value[i]]
+        grouped_sc_TEs = [TEgroups[i] for i in value]
+      sc_common = count(grouped_sc_TEs)
+      sc_TE[key], sc_count[key] = sc_common[0]
       ins_TE = sc_TE[key]
       support = 0
 
@@ -198,7 +213,7 @@ def main(args):
       clus = key
       TEmatch = "No"
       if (not (left_bp, right_bp, chrom) in bps and support >= minsupport):
-          outputfiletowrite.append(chrom + '\t' + clus + '\t' + str(support) + '\t' + ins_TE + '\t' + left_bp + '\t' + right_bp + '\t' + has_bp + '\t' + sc_align + '\t' + dc_align + '\t' + TEmatch + '\n')
+          outputfiletowrite.append(chrom + '\t' + clus + '\t' + str(support) + '\t' + ins_TE + '\t' + left_bp + '\t' + right_bp + '\t' + has_bp + '\t' + sc_align + '\t' + dc_align + '\t' + TEmatch + '\t' + subFam + '\n')
           bps[(left_bp, right_bp, chrom)] = 1
 
   if (calldisconly):
@@ -207,11 +222,15 @@ def main(args):
         has_bp = "No"
         sc_align = "No"
         dc_align = "Yes"
+        #subFam, subCount = most_common(value)
+        subFam = ','.join(['{0} {1}'.format(x,y) for x,y in count(value)])
         grouped_dc_TEs = value
         if (groupedTEsfilename != "none"):
-          for i in xrange(len(value)):
-            grouped_dc_TEs[i] = TEgroups[value[i]]
-        ins_TE, support = most_common(grouped_dc_TEs)
+          #for i in xrange(len(value)):
+            #grouped_dc_TEs[i] = TEgroups[value[i]]
+          grouped_dc_TEs = [TEgroups[i] for i in value]
+        dc_common = count(grouped_dc_TEs)
+        int_TE, support = dc_common[0]
 
         cluster_range = cluster_ranges[key].split('\t')
         chrom = cluster_range[0]
@@ -233,7 +252,7 @@ def main(args):
 
         TEmatch = "No"
         if (not (left_bp, right_bp, chrom) in bps and support >= minsupport):
-            outputfiletowrite.append(chrom + '\t' + clus + '\t' + str(support) + '\t' + ins_TE + '\t' + left_bp + '\t' + right_bp + '\t' + has_bp + '\t' + sc_align + '\t' + dc_align + '\t' + TEmatch + '\n')
+            outputfiletowrite.append(chrom + '\t' + clus + '\t' + str(support) + '\t' + ins_TE + '\t' + left_bp + '\t' + right_bp + '\t' + has_bp + '\t' + sc_align + '\t' + dc_align + '\t' + TEmatch + '\t' + subFam + '\n')
             bps[(left_bp, right_bp, chrom)] = 1
 
   outputfiletowrite = sorted(list(set(outputfiletowrite)), key=lambda x: int(x.split('\t')[1]))
