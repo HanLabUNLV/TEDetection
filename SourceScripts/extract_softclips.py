@@ -156,13 +156,13 @@ def main(args):
             seqs = leftscseqs[leftscpos]
             for i in xrange(len(seqs)):
               results[0] += ">leftsc%i:%s\n%s\n" % (i, clusnum, seqs[i])
-            results[1] += chrom + '\t' + str(clusnum) + '\t' + str(leftscpos) + '\t' + str(maxseqs) + '\t' + str(coverage) + '\tleft\n'
+            results[1] += chrom + '\t' + str(clusnum) + '\t' + str(leftscpos) + '\t' + str(leftmaxseqs) + '\t' + str(coverage) + '\tleft\n'
 
           if (rightmaxseqs > 0):
             seqs = rightscseqs[rightscpos]
             for i in xrange(len(seqs)):
               results[0] += ">rightsc%i:%s\n%s\n" % (i, clusnum, seqs[i])
-            results[1] += chrom + '\t' + str(clusnum) + '\t' + str(rightscpos) + '\t' + str(maxseqs) + '\t' + str(coverage) + '\tright\n'
+            results[1] += chrom + '\t' + str(clusnum) + '\t' + str(rightscpos) + '\t' + str(rightmaxseqs) + '\t' + str(coverage) + '\tright\n'
       # if all the breakpoints are to be reported..
       else:
         coverage = 0
