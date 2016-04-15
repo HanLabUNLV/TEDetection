@@ -41,10 +41,12 @@ def parseArgs(sysargs):
             -bp [Path/to/Breakpoints.txt] (will be created if left empty)\n \
             -tg [Path/to/TEGroups.txt]  File with tab seperate groups of similar TEs (optional)\n \
             -rd <int> default:50   Average read depth (used for filtering sections of abnormally large read depth)\n \
+            -rl <int> default:100  Read length of reads in the bam file\n \
             -mc <int> default:5    Minimum cluster size for discordant reads\n \
             -ms <int> default:3    Minimum softclips supporting a breakpoint\n \
+            -sp <float> default:5.0  Minimum support value for calls (# basepairs aligned / read length)\n \
             -mp <float> default:25.0  Minimum phred quality of softclipped basepairs\n \
-            -do <bool> default:1   Call events with only discordant reads (no softclip breakpoints)\n \
+            -do <bool> default:0   Call events with only discordant reads (no softclip breakpoints)\n \
             -st <int> default:1    Number of threads for sorting\n \
             -sm <int>(bytes) default: 1073741824 (1 GB) Amount of memory per thread used in sorting\n \
             -d  Discard intermediate files when finished\n \
@@ -53,10 +55,12 @@ def parseArgs(sysargs):
   args = {}
   # Default values
   args["-rd"] = 50
+  args["-rl"] = 100
   args["-mc"] = 5
   args["-ms"] = 3
+  args["-sp"] = 5.0
   args["-mp"] = 25
-  args["-do"] = 1
+  args["-do"] = 0
   args["-st"] = 1
   args["-sm"] = 1073741824
   args["-d"] = False
@@ -198,11 +202,9 @@ def main(args):
     extractscproc.wait()
 
   refinedoutputfilename = "Results/%s.refined.breakpoints.txt" % (basename)
-  mappedclustfilename = "Results/%s.mapped.clusters.txt" % (basename)
-  mappedscfilename = "Results/%s.mapped.softclips.txt" % (basename)
   outputfile.write("Comparing mapped cluster mates to mapped softclip sequences.." + '\n')
   outputfile.write(str(datetime.datetime.today()) + '\n')
-  compare_mapped_reads.main(["none", argdict["-cs"], argdict["-ss"], argdict["-bp"], refinedoutputfilename, argdict["-tg"], argdict["-cr"], mappedclustfilename, mappedscfilename, str(int(argdict["-ms"]) + int(argdict["-mc"])), argdict["-do"]])
+  compare_mapped_reads.main(["none", argdict["-cs"], argdict["-ss"], argdict["-bp"], refinedoutputfilename, argdict["-tg"], argdict["-cr"], argdict["-sp"], argdict["-rl"], argdict["-do"]])
 
   if (argdict["-d"] == True):
     outputfile.write("Removing temp data from scratch directory.." + '\n')

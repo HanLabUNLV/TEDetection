@@ -13,13 +13,11 @@ def main(args):
   normalext = args[3]
   scsrange = int(args[4])
   discsrange = int(args[5])
-  minscsup = int(args[6])
-  polymorphfilename = args[7]
-  cancer_bam = args[8]
-  norm_bam = args[9]
-  TEReffilename = args[10]
-  avereaddepth = args[11]
-  allow_disconly = int(args[12])
+  polymorphfilename = args[6]
+  cancer_bam = args[7]
+  norm_bam = args[8]
+  TEReffilename = args[9]
+  avereaddepth = args[10]
 
   cancerRBP = []
   cancerBP = {}
@@ -94,17 +92,15 @@ def main(args):
       if (chrom not in cancerBP):
         cancerBP[chrom] = set()
       #if (line_sp[4] != "NA" and line_sp[5] != "NA" and line_sp[-1] == "Yes" and int(line_sp[2]) >= minscsup \
-      if (has_bp == "Yes" or allow_disconly):
-        if ("SINE1/7SL" in TE_list or "L1" in TE_list):
-          if (int(line_sp[2]) >= minscsup): #and cluster in cancerBPclusters):
-            cancerRBP.append(line)
-          #if (line_sp[-1] == "No" and line_sp[-2] == "No"):
-          if (line_sp[4] != "NA" and line_sp[5] != "NA"):
-            cancerBP[chrom].add((int(line_sp[4]) - scsrange, int(line_sp[5]) + scsrange))
-          elif (line_sp[4] != "NA"):
-            cancerBP[chrom].add((int(line_sp[4]) - scsrange, int(line_sp[4]) + scsrange))
-          elif (line_sp[5] != "NA"):
-            cancerBP[chrom].add((int(line_sp[5]) - scsrange, int(line_sp[5]) + scsrange))
+      if ("SINE1/7SL" in TE_list or "L1" in TE_list):
+        cancerRBP.append(line)
+        #if (line_sp[-1] == "No" and line_sp[-2] == "No"):
+        if (line_sp[4] != "NA" and line_sp[5] != "NA"):
+          cancerBP[chrom].add((int(line_sp[4]) - scsrange, int(line_sp[5]) + scsrange))
+        elif (line_sp[4] != "NA"):
+          cancerBP[chrom].add((int(line_sp[4]) - scsrange, int(line_sp[4]) + scsrange))
+        elif (line_sp[5] != "NA"):
+          cancerBP[chrom].add((int(line_sp[5]) - scsrange, int(line_sp[5]) + scsrange))
   sys.stdout.write("\r100%")
   sys.stdout.flush()
 
@@ -126,17 +122,15 @@ def main(args):
       if (chrom not in normalBP):
         normalBP[chrom] = set()
       #if (line_sp[4] != "NA" and line_sp[5] != "NA" and line_sp[-1] == "Yes" and int(line_sp[2]) >= minscsup \
-      if (has_bp == "Yes" or allow_disconly):
-        if ("SINE1/7SL" in TE_list or "L1" in TE_list):
-          if (int(line_sp[2]) >= minscsup): #and cluster in normalBPclusters):
-            normalRBP.append(line)
-          #if (line_sp[-1] == "No" and line_sp[-2] == "No"):
-          if (line_sp[4] != "NA" and line_sp[5] != "NA"):
-            normalBP[chrom].add((int(line_sp[4]) - scsrange, int(line_sp[5]) + scsrange))
-          elif (line_sp[4] != "NA"):
-            normalBP[chrom].add((int(line_sp[4]) - scsrange, int(line_sp[4]) + scsrange))
-          elif (line_sp[5] != "NA"):
-            normalBP[chrom].add((int(line_sp[5]) - scsrange, int(line_sp[5]) + scsrange))
+      if ("SINE1/7SL" in TE_list or "L1" in TE_list):
+        normalRBP.append(line)
+        #if (line_sp[-1] == "No" and line_sp[-2] == "No"):
+        if (line_sp[4] != "NA" and line_sp[5] != "NA"):
+          normalBP[chrom].add((int(line_sp[4]) - scsrange, int(line_sp[5]) + scsrange))
+        elif (line_sp[4] != "NA"):
+          normalBP[chrom].add((int(line_sp[4]) - scsrange, int(line_sp[4]) + scsrange))
+        elif (line_sp[5] != "NA"):
+          normalBP[chrom].add((int(line_sp[5]) - scsrange, int(line_sp[5]) + scsrange))
   sys.stdout.write("\r100%")
   sys.stdout.flush()
 
@@ -169,11 +163,11 @@ def main(args):
 
 
   overlapfile = open("Results/%s.overlaps.txt" % (patID), 'w+')
-  overlapfile.write("Chromosome\tCluster\tSupportingReads\tTEFamily\tLeftBP\tRightBP\tHas_BP\tSoftclip_Align\tDiscordant_Align\tTEMatch\n")
+  overlapfile.write(header)
   normalonlyfile = open("Results/%s.normalonly.txt" % (patID), 'w+')
-  normalonlyfile.write("Chromosome\tCluster\tSupportingReads\tTEFamily\tLeftBP\tRightBP\tHas_BP\tSoftclip_Align\tDiscordant_Align\tTEMatch\n")
+  normalonlyfile.write(header)
   canceronlyfile = open("Results/%s.canceronly.txt" % (patID), 'w+')
-  canceronlyfile.write("Chromosome\tCluster\tSupportingReads\tTEFamily\tLeftBP\tRightBP\tHas_BP\tSoftclip_Align\tDiscordant_Align\tTEMatch\n")
+  canceronlyfile.write(header)
 
   overlapfiletowrite = {}
   appendpolymorphfile = open(polymorphfilename, 'a+')
