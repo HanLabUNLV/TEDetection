@@ -1,378 +1,336 @@
 #!/usr/bin/env python
 import sys
+import argparse
+import pysam
 import os.path
-import os
-import datetime
-import subprocess
 
-def main(args):
-  #sys.path.append(args[8])
-  import extract_softclips
-  patID = args[1]
-  cancerext = args[2]
-  normalext = args[3]
-  scsrange = int(args[4])
-  discsrange = int(args[5])
-  polymorphfilename = args[6]
-  cancer_bam = args[7]
-  norm_bam = args[8]
-  TEReffilename = args[9]
-  avereaddepth = args[10]
+def ParseArgs():
+    """
+    Sets up the argument parser and returns the parsed command line arguments
+    """
+    parser = argparse.ArgumentParser(description="Compare the breakpoints between the cancer and normal patient files and identify polymorphisms.", \
+            formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument('-sr', dest='searchRange', \
+            type=int, default=100, help='Search range to extend breakpoints searching for polymorphisms')
+    parser.add_argument('-id', dest='patientID', \
+            help='ID of the patient in the .bam file without extensions', required=True)
+    parser.add_argument('-ce', dest='cancerExt', \
+            help='File name extension of the cancer .bam file', required=True)
+    parser.add_argument('-ne', dest='normalExt', \
+            help='File name extension of the normal .bam file', required=True)
+    parser.add_argument('-pf', dest='polymorphBasename', required=True, \
+            help='File path and basename (without the chromosome #) for the polymorphisms files')
+    parser.add_argument('-cb', dest='cancerBam', \
+            help='File path to cancer .bam file', required=True)
+    parser.add_argument('-nb', dest='normalBam', \
+            help='File path to normal .bam file', required=True)
+    parser.add_argument('-tr', dest='TERefGenome', \
+            help='File path to TE reference genome', required=True)
+    parser.add_argument('-rf', dest="resultsFolder", \
+            help="File path to Results/ folder from TEDetection", default="Results/")
 
-  cancerRBP = []
-  cancerBP = {}
-  cancerBPclusters = set()
-  normalRBP = []
-  normalBP = {}
-  normalBPclusters = set()
-  polymorphBP = {}
+    return parser.parse_args()
 
-  cancerBPfilename = "Results/" + patID + cancerext + ".breakpoints.txt"
-  normalBPfilename = "Results/" + patID + normalext + ".breakpoints.txt"
-  cancerRBPfilename ="Results/" +  patID + cancerext + ".refined.breakpoints.txt"
-  normalRBPfilename ="Results/" +  patID + normalext + ".refined.breakpoints.txt"
-  cancerCRfilename = "Results/" + patID + cancerext + ".disc.clusters.ranges.txt"
-  normalCRfilename = "Results/" + patID + normalext + ".disc.clusters.ranges.txt"
+def GetPolymorphisms(polymorphFilenames):
+    """
+    Reads all the polymorphisms*.txt files to get all the polymorph breakpoints.
+    Returns a dictionary of polymorphisms for each chromosome with the list of breakpoints
+    """
+    polymorphisms = {}
+    for chromosome, filename in polymorphFilenames:
+        if (os.path.isfile(filename)):
+            polymorphisms[chromosome] = []
+            with open(filename, 'r') as polyFile:
+                for line in polyFile:
+                    linesp = line.rstrip('\n').split('\t')
+                    leftBP = linesp[4]
+                    rightBP = linesp[5]
 
-  print("\nReading %s..." % (cancerBPfilename))
-  print(str(datetime.datetime.today()))
-  with open(cancerBPfilename, 'r') as cancerBPfile:
-    header = cancerBPfile.readline()
-    file_size = os.stat(cancerBPfilename).st_size
-    count = 0
-    for line in cancerBPfile:
-      count += len(line)
-      sys.stdout.write("\r%i%%" % (int((count*100)/file_size)))
-      sys.stdout.flush()
-      line_sp = line.rstrip('\n').split('\t')
-      chrom = line_sp[0]
-      cluster = line_sp[1]
-      cancerBPclusters.add(cluster)
-      if (chrom not in cancerBP):
-        cancerBP[chrom] = set()
-      cancerBP[chrom].add((int(line_sp[2]) - scsrange, int(line_sp[2]) + scsrange))
-  sys.stdout.write("\r100%")
-  sys.stdout.flush()
+                    if (leftBP == "NA"):
+                        leftBP = int(rightBP)
+                    if (rightBP == "NA"):
+                        rightBP = int(leftBP)
 
-  print("\nReading %s..." % (normalBPfilename))
-  print(str(datetime.datetime.today()))
-  with open(normalBPfilename, 'r') as normalBPfile:
-    header = normalBPfile.readline()
-    file_size = os.stat(normalBPfilename).st_size
-    count = 0
-    for line in normalBPfile:
-      count += len(line)
-      sys.stdout.write("\r%i%%" % (int((count*100)/file_size)))
-      sys.stdout.flush()
-      line_sp = line.rstrip('\n').split('\t')
-      chrom = line_sp[0]
-      cluster = line_sp[1]
-      normalBPclusters.add(cluster)
-      if (chrom not in normalBP):
-        normalBP[chrom] = set()
-      normalBP[chrom].add((int(line_sp[2]) - scsrange, int(line_sp[2]) + scsrange))
-  sys.stdout.write("\r100%")
-  sys.stdout.flush()
+                    leftBP = int(leftBP)
+                    rightBP = int(rightBP)
 
-  print("\nReading %s..." % (cancerRBPfilename))
-  print(str(datetime.datetime.today()))
-  with open(cancerRBPfilename, 'r') as cancerRBPfile:
-    header = cancerRBPfile.readline()
-    file_size = os.stat(cancerRBPfilename).st_size
-    count = 0
-    for line in cancerRBPfile:
-      count += len(line)
-      sys.stdout.write("\r%i%%" % (int((count*100)/file_size)))
-      sys.stdout.flush()
-      line_sp = line.rstrip('\n').split('\t')
-      TE_list = line_sp[3].split(',')
-      cluster = line_sp[1]
-      chrom = line_sp[0]
-      has_bp = line_sp[6]
-      if (chrom not in cancerBP):
-        cancerBP[chrom] = set()
-      #if (line_sp[4] != "NA" and line_sp[5] != "NA" and line_sp[-1] == "Yes" and int(line_sp[2]) >= minscsup \
-      if ("SINE1/7SL" in TE_list or "L1" in TE_list):
-        cancerRBP.append(line)
-        #if (line_sp[-1] == "No" and line_sp[-2] == "No"):
-        if (line_sp[4] != "NA" and line_sp[5] != "NA"):
-          cancerBP[chrom].add((int(line_sp[4]) - scsrange, int(line_sp[5]) + scsrange))
-        elif (line_sp[4] != "NA"):
-          cancerBP[chrom].add((int(line_sp[4]) - scsrange, int(line_sp[4]) + scsrange))
-        elif (line_sp[5] != "NA"):
-          cancerBP[chrom].add((int(line_sp[5]) - scsrange, int(line_sp[5]) + scsrange))
-  sys.stdout.write("\r100%")
-  sys.stdout.flush()
+                    if (leftBP > rightBP):
+                        # Swap the variables
+                        leftBP, rightBP = rightBP, leftBP
 
-  print("\nReading %s..." % (normalRBPfilename))
-  print(str(datetime.datetime.today()))
-  with open(normalRBPfilename, 'r') as normalRBPfile:
-    header = normalRBPfile.readline()
-    file_size = os.stat(normalRBPfilename).st_size
-    count = 0
-    for line in normalRBPfile:
-      count += len(line)
-      sys.stdout.write("\r%i%%" % (int((count*100)/file_size)))
-      sys.stdout.flush()
-      line_sp = line.rstrip('\n').split('\t')
-      TE_list = line_sp[3].split(',')
-      cluster = line_sp[1]
-      chrom = line_sp[0]
-      has_bp = line_sp[6]
-      if (chrom not in normalBP):
-        normalBP[chrom] = set()
-      #if (line_sp[4] != "NA" and line_sp[5] != "NA" and line_sp[-1] == "Yes" and int(line_sp[2]) >= minscsup \
-      if ("SINE1/7SL" in TE_list or "L1" in TE_list):
-        normalRBP.append(line)
-        #if (line_sp[-1] == "No" and line_sp[-2] == "No"):
-        if (line_sp[4] != "NA" and line_sp[5] != "NA"):
-          normalBP[chrom].add((int(line_sp[4]) - scsrange, int(line_sp[5]) + scsrange))
-        elif (line_sp[4] != "NA"):
-          normalBP[chrom].add((int(line_sp[4]) - scsrange, int(line_sp[4]) + scsrange))
-        elif (line_sp[5] != "NA"):
-          normalBP[chrom].add((int(line_sp[5]) - scsrange, int(line_sp[5]) + scsrange))
-  sys.stdout.write("\r100%")
-  sys.stdout.flush()
+                    polymorphisms[chromosome].append((leftBP, rightBP))
 
-  if (os.path.isfile(polymorphfilename)):
-    print("\nReading %s..." % (polymorphfilename))
-    print(str(datetime.datetime.today()))
-    with open(polymorphfilename, 'r') as polymorphfile:
-      for line in polymorphfile:
-        line_sp = line.rstrip('\n').split('\t')
-        chrom = line_sp[0]
-        if (chrom not in normalBP):
-          normalBP[chrom] = set()
-        if (chrom not in cancerBP):
-          cancerBP[chrom] = set()
-        if (line_sp[4] != "NA" and line_sp[5] != "NA"):
-          normalBP[chrom].add((int(line_sp[4]) - scsrange, int(line_sp[5]) + scsrange))
-          cancerBP[chrom].add((int(line_sp[4]) - scsrange, int(line_sp[5]) + scsrange))
-          for i in xrange(int(line_sp[4]) - scsrange, int(line_sp[5]) + scsrange):
-            polymorphBP[(chrom, i)] = 1
-        elif (line_sp[4] != "NA"):
-          normalBP[chrom].add((int(line_sp[4]) - scsrange, int(line_sp[4]) + scsrange))
-          cancerBP[chrom].add((int(line_sp[4]) - scsrange, int(line_sp[4]) + scsrange))
-          for i in xrange(int(line_sp[4]) - scsrange, int(line_sp[4]) + scsrange):
-            polymorphBP[(chrom, i)] = 1
-        elif (line_sp[5] != "NA"):
-          normalBP[chrom].add((int(line_sp[5]) - scsrange, int(line_sp[5]) + scsrange))
-          cancerBP[chrom].add((int(line_sp[5]) - scsrange, int(line_sp[5]) + scsrange))
-          for i in xrange(int(line_sp[5]) - scsrange, int(line_sp[5]) + scsrange):
-            polymorphBP[(chrom, i)] = 1
+    return polymorphisms
 
+def GetBreakpoints(filename):
+    """
+    Reads a *.refined.breakpoints.txt file and returns a list of tuples with each breakpoint
+    """
+    breakpoints = []
+    fileLines = {}
+    with open(filename, 'r') as file:
+        header = file.readline()
+        for line in file:
+            linesp = line.rstrip('\n').split('\t')
+            chromosome = linesp[0]
+            cluster = linesp[1]
+            leftBP = linesp[4]
+            rightBP = linesp[5]
+            fileLines[cluster] = line
 
-  overlapfile = open("Results/%s.overlaps.txt" % (patID), 'w+')
-  overlapfile.write(header)
-  normalonlyfile = open("Results/%s.normalonly.txt" % (patID), 'w+')
-  normalonlyfile.write(header)
-  canceronlyfile = open("Results/%s.canceronly.txt" % (patID), 'w+')
-  canceronlyfile.write(header)
+            if (leftBP == "NA"):
+                leftBP = int(rightBP)
+            if (rightBP == "NA"):
+                rightBP = int(leftBP)
 
-  overlapfiletowrite = {}
-  appendpolymorphfile = open(polymorphfilename, 'a+')
+            leftBP = int(leftBP)
+            rightBP = int(rightBP)
 
-  print("\nComparing cancer breakpoints to normal breakpoints...")
-  print(str(datetime.datetime.today()))
-  for i in xrange(len(cancerRBP)):
-    sys.stdout.write("\r%i%%" % (int((i*100)/len(cancerRBP))))
-    sys.stdout.flush()
-    line_sp = cancerRBP[i].rstrip('\n').split('\t')
-    chrom = line_sp[0]
-    found = False
-    if (chrom in normalBP):
-      bp_list = list(normalBP[chrom])
-      for j in xrange(len(bp_list)):
-        normal_left_bp = bp_list[j][0]
-        normal_right_bp = bp_list[j][1]
-        if (line_sp[4] != "NA" and int(line_sp[4]) >= normal_left_bp and int(line_sp[4]) <= normal_right_bp):
-          overlapfiletowrite[(chrom, line_sp[4], line_sp[5])] = cancerRBP[i]
-          if (not (chrom, int(line_sp[4])) in polymorphBP):
-            appendpolymorphfile.write(cancerRBP[i])
-            polymorphBP[(chrom, int(line_sp[4]))] = 1
-          found = True
-          break
-        elif (line_sp[5] != "NA" and int(line_sp[5]) >= normal_left_bp and int(line_sp[5]) <= normal_right_bp):
-          overlapfiletowrite[(chrom, line_sp[4], line_sp[5])] = cancerRBP[i]
-          if (not (chrom, int(line_sp[5])) in polymorphBP):
-            appendpolymorphfile.write(cancerRBP[i])
-            polymorphBP[(chrom, int(line_sp[5]))] = 1
-          found = True
-          break
-        if (line_sp[4] != "NA" and line_sp[5] != "NA"):
-          if ((normal_left_bp >= int(line_sp[4]) and normal_left_bp <= int(line_sp[5]))\
-              or (normal_right_bp >= int(line_sp[4]) and normal_right_bp <= int(line_sp[5]))):
-            overlapfiletowrite[(chrom, line_sp[4], line_sp[5])] = cancerRBP[i]
-            if (not (chrom, int(line_sp[4])) in polymorphBP):
-              appendpolymorphfile.write(cancerRBP[i])
-              polymorphBP[(chrom, int(line_sp[4]))] = 1
+            if (leftBP > rightBP):
+                # Swap the variables
+                leftBP, rightBP = rightBP, leftBP
+
+            breakpoints.append((chromosome, leftBP, rightBP, cluster))
+
+    return fileLines, breakpoints, header
+
+def GetDiscRanges(filename, searchRange, mappedClusters):
+    """
+    Reads the *.disc.clusters.ranges.txt files and returns a list of tuples with the discordant
+    cluster ranges. This also adds the search range to each range.
+    """
+    discRanges = {}
+    with open(filename, 'r') as file:
+        header = file.readline()
+        for line in file:
+            linesp = line.rstrip('\n').split('\t')
+            chromosome = linesp[0]
+            if (chromosome not in discRanges):
+                discRanges[chromosome] = []
+            cluster = linesp[1]
+            if cluster in mappedClusters:
+                leftBP = int(linesp[2]) - searchRange
+                rightBP = int(linesp[3]) + searchRange
+                discRanges[chromosome].append((leftBP, rightBP, cluster))
+
+    return discRanges
+
+def CalculateQuality(qualitySeq, softclipLength, minSoftclipLength, phredOffset, side):
+    """
+    Calculates the average quality of the softclip sequence up to the minimum softclip length.
+    The side indicates which side the softclip is on
+    """
+    if (side == 0):
+        return (sum(map(ord, qualitySeq[softclipLength - \
+                minSoftclipLength:softclipLength])) - \
+                phredOffset*minSoftclipLength)/minSoftclipLength
+    else:
+        return (sum(map(ord, qualitySeq[-softclipLength: \
+                -softclipLength + minSoftclipLength])) - \
+                phredOffset*minSoftclipLength)/minSoftclipLength
+
+def CheckSoftclips(bamFile, chromosome, position, side):
+    """
+    Extracts the softclips around a breakpoint and returns true if at least 2
+    are found around the position. Returns false otherwise
+    """
+    minQuality = 5
+    maxMismatches = 2
+    softclipID = 4
+    minSoftclipLength = 5
+    minPhredQuality = 20
+    minNumberOfSoftclips = 1
+    phredOffset = 33
+
+    numberOfSoftclips = 0
+    if (side == 0):
+        # Left side has softclip position closer
+        bamReadIter = bamFile.fetch(chromosome, position - 5, position + 5).__iter__()
+    else:
+        # Right side can have read position far from softclip
+        bamReadIter = bamFile.fetch(chromosome, position - 100, position + 100).__iter__()
+    for read in bamReadIter:
+        if (read.cigar and read.cigar[side][0] == softclipID and \
+                not read.is_duplicate and read.mapq >= minQuality):
+            mismatches = filter(lambda x: x[0] == "NM", read.tags)
+            if (mismatches or mismatches[0][1] <= maxMismatches):
+                softclipLength = read.cigar[side][1]
+                if (side == 0):
+                    softclipPosition = read.pos
+                else:
+                    softclipPosition = read.pos + read.rlen - softclipLength + 1
+                    if (read.cigar[0][0] == softclipID):
+                        softclipPosition -= read.cigar[0][1]
+
+                if (softclipLength >= minSoftclipLength):
+                    averageQuality = CalculateQuality(read.qual, softclipLength, \
+                            minSoftclipLength, phredOffset, side)
+                    if (averageQuality >= minPhredQuality and \
+                            position - 5 <= softclipPosition <= position + 5):
+                        numberOfSoftclips += 1
+                        if (numberOfSoftclips >= minNumberOfSoftclips):
+                            return True
+
+    return False
+
+def CompareBreakpoints(cancerLines, cancerBPs, cancerDiscRanges, normalLines, normalBPs, normalDiscRanges, polymorphisms, searchRange, polymorphFilenames, cancerBamFilename, normalBamFilename, resultsFolder, patientID, header):
+    """
+    Compares the cancer breakpoints to the normal breakpoints and polymorphisms.
+    Once the cancerBPs and normalBPs have been checked here, they don't need to be
+    checked again for the normal.
+    """
+    cancerBamFile = pysam.Samfile(cancerBamFilename, 'rb')
+    normalBamFile = pysam.Samfile(normalBamFilename, 'rb')
+    polymorphFiles = {}
+    for chrom, filename in polymorphFilenames:
+        polymorphFiles[chrom] = open(filename, 'a+')
+
+    cancerOnlyFile = open(resultsFolder + patientID + ".canceronly.txt", 'w+')
+    normalOnlyFile = open(resultsFolder + patientID + ".normalonly.txt", 'w+')
+    cancerOnlyFile.write(header)
+    normalOnlyFile.write(header)
+
+    for cancerChrom, cancerLeftBP, cancerRightBP, cancerCluster in cancerBPs:
+        found = False
+        # Check against the normal breakpoints
+        for normalChrom, normalLeftBP, normalRightBP, normalCluster in normalBPs:
+            adjustedLeftBP = normalLeftBP - searchRange
+            adjustedRightBP = normalRightBP + searchRange
+            if (cancerChrom == normalChrom) and (adjustedLeftBP <= cancerLeftBP <= adjustedRightBP or \
+                    adjustedLeftBP <= cancerRightBP <= adjustedRightBP):
+                found = True
+                # Remove the subfamilies from polymorph file line
+                polymorphLine = '\t'.join(cancerLines[cancerCluster].split('\t')[:-1]) + '\n'
+                polymorphFiles[cancerChrom].write(polymorphLine)
+                cancerLines.pop(cancerCluster, 0)
+                normalLines.pop(normalCluster, 0)
+                break
+
+        if found:
+            continue
+
+        # Check against the normal discordant ranges
+        for discLeftBP, discRightBP, discCluster in normalDiscRanges[cancerChrom]:
+            if (discLeftBP <= cancerLeftBP <= discRightBP or \
+                    discLeftBP <= cancerRightBP <= discRightBP):
+                found = True
+                # Remove the subfamilies from polymorph file line
+                polymorphLine = '\t'.join(cancerLines[cancerCluster].split('\t')[:-1]) + '\n'
+                polymorphFiles[cancerChrom].write(polymorphLine)
+                cancerLines.pop(cancerCluster, 0)
+                normalLines.pop(discCluster, 0)
+                break
+
+        if found:
+            continue
+
+        # Check against the polymorphisms
+        if (cancerChrom in polymorphisms):
+            for polyLeftBP, polyRightBP in polymorphisms[cancerChrom]:
+                if (polyLeftBP <= cancerLeftBP <= polyRightBP or \
+                        polyLeftBP <= cancerRightBP <= polyRightBP):
+                    found = True
+                    cancerLines.pop(cancerCluster, 0)
+                    break
+
+        if found:
+            continue
+
+        # Final check for softclips in normal before calling insertion
+        splitLine = cancerLines[cancerCluster].split('\t')
+        if ((splitLine[4] != "NA" and CheckSoftclips(normalBamFile, cancerChrom, int(splitLine[4]), 0)) \
+                or (splitLine[5] != "NA" and CheckSoftclips(normalBamFile, cancerChrom, int(splitLine[5]), -1))):
             found = True
-            break
-    if (not found):
-      # Check for breakpoints in normal file
-      if (line_sp[4] != "NA"):
-        rstart = int(line_sp[4])
-        if (line_sp[5] != "NA"):
-          rend = int(line_sp[5])
-        else:
-          rend = int(line_sp[4])
-      else:
-        rstart = int(line_sp[5])
-        rend = int(line_sp[5])
+            # Remove the subfamilies from polymorph file line
+            polymorphLine = '\t'.join(cancerLines[cancerCluster].split('\t')[:-1]) + '\n'
+            polymorphFiles[cancerChrom].write(polymorphLine)
+            cancerLines.pop(cancerCluster, 0)
+            continue
 
-      if (rstart > rend):
-        temp = rstart
-        rstart = rend
-        rend = temp
+        # Passed all checks, add to calls
+        cancerOnlyFile.write(cancerLines[cancerCluster])
 
-      rstart -= scsrange
-      rend += scsrange
+    for normalChrom, normalLeftBP, normalRightBP, normalCluster in normalBPs:
+        found = False
+        # Cluster could have been removed while checking cancer breakpoints
+        if (normalCluster in normalLines):
+            # Check against the cancer discordant ranges
+            for discLeftBP, discRightBP, discCluster in cancerDiscRanges[normalChrom]:
+                if (discLeftBP <= normalLeftBP <= discRightBP or \
+                        discLeftBP <= normalRightBP <= discRightBP):
+                    found = True
+                    # Remove the subfamilies from polymorph file line
+                    polymorphLine = '\t'.join(normalLines[normalCluster].split('\t')[:-1]) + '\n'
+                    polymorphFiles[normalChrom].write(polymorphLine)
+                    cancerLines.pop(normalCluster, 0)
+                    normalLines.pop(discCluster, 0)
+                    break
 
-      temp_bam_proc = subprocess.Popen("samtools view -hb %s %s:%i-%i > temp.bam && samtools index temp.bam" % (norm_bam, chrom, rstart - int(avereaddepth), rend + int(avereaddepth)), shell=True, stdout=subprocess.PIPE)
-      temp_bam_proc.wait()
+            if found:
+                continue
 
-      temp_ranges_file = open("temp_ranges.txt", 'w+')
-      temp_ranges_file.write("Header\n%s\t0\t%i\t%i\t1\n" % (chrom, rstart, rend))
-      temp_ranges_file.close()
-      extract_softclips.main(["", "temp.bam", "temp_ranges.txt", avereaddepth, TEReffilename, "1", 0, 0, 2, 15, 5, 20, 1])
-      temp_bps = []
+            # Check against the polymorphisms
+            if (normalChrom in polymorphisms):
+                for polyLeftBP, polyRightBP in polymorphisms[normalChrom]:
+                    if (polyLeftBP <= normalLeftBP <= polyRightBP or \
+                            polyLeftBP <= normalRightBP <= polyRightBP):
+                        found = True
+                        normalLines.pop(normalCluster, 0)
+                        break
 
-      with open("Results/temp.breakpoints.txt", 'r') as temp_bp_file:
-        temp_bp_file.readline()
-        for line in temp_bp_file:
-          split_line = line.rstrip('\n').split('\t')
-          chr = split_line[0]
-          pos = int(split_line[2])
-          sup = int(split_line[3])
-          temp_bps.append((chr, pos, sup))
+            if found:
+                continue
 
-      poly = False
-      for k in xrange(len(temp_bps)):
-        #if (temp_bps[k][0] == chrom and temp_bps[k][2] > 1):
-        if (line_sp[4] != "NA" and int(line_sp[4]) >= temp_bps[k][1] - 5 \
-            and int(line_sp[4]) <= temp_bps[k][1] + 5):
-          poly = True
-        elif (line_sp[5] != "NA" and int(line_sp[5]) >= temp_bps[k][1] - 5 \
-            and int(line_sp[5]) <= temp_bps[k][1] + 5):
-          poly = True
-        if (line_sp[4] != "NA" and line_sp[5] != "NA"):
-          if (temp_bps[k][1] >= line_sp[4] and temp_bps[k][1] <= line_sp[5]):
-            poly = True
+            # Final check for softclips in cancer before calling insertion
+            splitLine = normalLines[normalCluster].split('\t')
+            if ((splitLine[4] != "NA" and CheckSoftclips(cancerBamFile, normalChrom, int(splitLine[4]), 0)) \
+                    or (splitLine[5] != "NA" and CheckSoftclips(cancerBamFile, normalChrom, int(splitLine[5]), -1))):
+                found = True
+                # Remove the subfamilies from polymorph file line
+                polymorphLine = '\t'.join(normalLines[normalCluster].split('\t')[:-1]) + '\n'
+                polymorphFiles[normalChrom].write(polymorphLine)
+                normalLines.pop(discCluster, 0)
+                continue
 
-      if (not poly):
-        canceronlyfile.write(cancerRBP[i])
-      else:
-        overlapfiletowrite[(chrom, line_sp[4], line_sp[5])] = cancerRBP[i]
-  sys.stdout.write("\r100%")
-  sys.stdout.flush()
+            # Passed all checks, add to calls
+            normalOnlyFile.write(normalLines[normalCluster])
 
-  print("\nComparing normal breakpoints to cancer breakpoints...")
-  print(str(datetime.datetime.today()))
-  for i in xrange(len(normalRBP)):
-    sys.stdout.write("\r%i%%" % (int((i*100)/len(normalRBP))))
-    sys.stdout.flush()
-    line_sp = normalRBP[i].rstrip('\n').split('\t')
-    chrom = line_sp[0]
-    found = False
-    if (chrom in cancerBP):
-      bp_list = list(cancerBP[chrom])
-      for j in xrange(len(bp_list)):
-        cancer_left_bp = bp_list[j][0]
-        cancer_right_bp = bp_list[j][1]
-        if (line_sp[4] != "NA" and int(line_sp[4]) >= cancer_left_bp and int(line_sp[4]) <= cancer_right_bp):
-          overlapfiletowrite[(chrom, line_sp[4], line_sp[5])] = normalRBP[i]
-          if (not (chrom, int(line_sp[4])) in polymorphBP):
-            appendpolymorphfile.write(normalRBP[i])
-            polymorphBP[(chrom, int(line_sp[4]))] = 1
-          found = True
-          break
-        elif (line_sp[5] != "NA" and int(line_sp[5]) >= cancer_left_bp and int(line_sp[5]) <= cancer_right_bp):
-          overlapfiletowrite[(chrom, line_sp[4], line_sp[5])] = normalRBP[i]
-          if (not (chrom, int(line_sp[5])) in polymorphBP):
-            appendpolymorphfile.write(normalRBP[i])
-            polymorphBP[(chrom, int(line_sp[5]))] = 1
-          found = True
-          break
-        # Check if breakpoints are between
-        if (line_sp[4] != "NA" and line_sp[5] != "NA"):
-          if ((cancer_left_bp >= int(line_sp[4]) and cancer_left_bp <= int(line_sp[5]))\
-              or (cancer_right_bp >= int(line_sp[4]) and cancer_right_bp <= int(line_sp[5]))):
-            overlapfiletowrite[(chrom, line_sp[4], line_sp[5])] = normalRBP[i]
-            if (not (chrom, int(line_sp[4])) in polymorphBP):
-              appendpolymorphfile.write(normalRBP[i])
-              polymorphBP[(chrom, int(line_sp[4]))] = 1
-            found = True
-            break
-    if (not found):
-      # Check for breakpoints in cancer file
-      if (line_sp[4] != "NA"):
-        rstart = int(line_sp[4])
-        if (line_sp[5] != "NA"):
-          rend = int(line_sp[5])
-        else:
-          rend = int(line_sp[4])
-      else:
-        rstart = int(line_sp[5])
-        rend = int(line_sp[5])
+    cancerOnlyFile.close()
+    normalOnlyFile.close()
+    cancerBamFile.close()
+    normalBamFile.close()
 
-      if (rstart > rend):
-        temp = rstart
-        rstart = rend
-        rend = temp
+def main():
+    args = ParseArgs()
 
-      rstart -= scsrange
-      rend += scsrange
+    cancerRefinedBPFilename = args.resultsFolder + args.patientID + args.cancerExt + ".refined.breakpoints.txt"
+    normalRefinedBPFilename = args.resultsFolder + args.patientID + args.normalExt + ".refined.breakpoints.txt"
+    cancerMappedClustersFilename = args.resultsFolder + args.patientID + args.cancerExt + ".refined.breakpoints.mappedreads.txt"
+    normalMappedClustersFilename = args.resultsFolder + args.patientID + args.normalExt + ".refined.breakpoints.mappedreads.txt"
+    cancerClustersFilename = args.resultsFolder + args.patientID + args.cancerExt + ".disc.clusters.ranges.txt"
+    normalClustersFilename = args.resultsFolder + args.patientID + args.normalExt + ".disc.clusters.ranges.txt"
 
-      temp_bam_proc = subprocess.Popen("samtools view -hb %s %s:%i-%i > temp.bam 2> sam.err && samtools index temp.bam" % (cancer_bam, chrom, rstart - int(avereaddepth), rend + int(avereaddepth)), shell=True, stdout=subprocess.PIPE)
-      temp_bam_proc.wait()
+    chromosomes = [str(x) for x in range(1, 23)] + ['X', 'Y']
+    polymorphFilenames = [(chrom, args.polymorphBasename + chrom + ".txt") for chrom in chromosomes]
 
-      temp_ranges_file = open("temp_ranges.txt", 'w+')
-      temp_ranges_file.write("Header\n%s\t0\t%i\t%i\t1\n" % (chrom, rstart, rend))
-      temp_ranges_file.close()
-      extract_softclips.main(["", "temp.bam", "temp_ranges.txt", avereaddepth, TEReffilename, "1", 0, 0, 2, 15, 5, 20, 1])
-      temp_bps = []
+    polymorphisms = GetPolymorphisms(polymorphFilenames)
 
-      with open("Results/temp.breakpoints.txt", 'r') as temp_bp_file:
-        temp_bp_file.readline()
-        for line in temp_bp_file:
-          split_line = line.rstrip('\n').split('\t')
-          chr = split_line[0]
-          pos = int(split_line[2])
-          sup = int(split_line[3])
-          temp_bps.append((chr, pos, sup))
+    cancerLines, cancerBPs, header = GetBreakpoints(cancerRefinedBPFilename)
+    normalLines, normalBPs, header = GetBreakpoints(normalRefinedBPFilename)
 
-      poly = False
-      for k in xrange(len(temp_bps)):
-        #if (temp_bps[k][0] == chrom and temp_bps[k][2] > 1):
-        if (line_sp[4] != "NA" and int(line_sp[4]) >= temp_bps[k][1] - 5 \
-            and int(line_sp[4]) <= temp_bps[k][1] + 5):
-          poly = True
-        elif (line_sp[5] != "NA" and int(line_sp[5]) >= temp_bps[k][1] - 5 \
-            and int(line_sp[5]) <= temp_bps[k][1] + 5):
-          poly = True
-        if (line_sp[4] != "NA" and line_sp[5] != "NA"):
-          if (temp_bps[k][1] >= line_sp[4] and temp_bps[k][1] <= line_sp[5]):
-            poly = True
+    cancerMappedClusters = set()
+    normalMappedClusters = set()
+    with open(cancerMappedClustersFilename, 'r') as cancerMappedFile:
+        for line in cancerMappedFile:
+            cancerMappedClusters.add(line.rstrip('\n'))
+    with open(normalMappedClustersFilename, 'r') as normalMappedFile:
+        for line in normalMappedFile:
+            normalMappedClusters.add(line.rstrip('\n'))
 
-      if (not poly):
-        normalonlyfile.write(normalRBP[i])
-      else:
-        overlapfiletowrite[(chrom, line_sp[4], line_sp[5])] = normalRBP[i]
-  sys.stdout.write("\r100%")
-  sys.stdout.flush()
+    cancerDiscRanges = GetDiscRanges(cancerClustersFilename, args.searchRange, cancerMappedClusters)
+    normalDiscRanges = GetDiscRanges(normalClustersFilename, args.searchRange, normalMappedClusters)
 
-  print("\nWriting overlaps to file...")
-  print(str(datetime.datetime.today()))
-  for key, value in overlapfiletowrite.iteritems():
-    overlapfile.write(value)
+    CompareBreakpoints(cancerLines, cancerBPs, cancerDiscRanges, normalLines, normalBPs, normalDiscRanges, polymorphisms, args.searchRange, polymorphFilenames, args.cancerBam, args.normalBam, args.resultsFolder, args.patientID, header)
 
-  overlapfile.close()
-  normalonlyfile.close()
-  canceronlyfile.close()
-  appendpolymorphfile.close()
-
-  print("Finished comparing results.")
-  print(str(datetime.datetime.today()))
-
-if (__name__ == "__main__"):
-  main(sys.argv)
+if __name__ == '__main__':
+    main()

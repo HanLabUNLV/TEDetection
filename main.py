@@ -24,7 +24,7 @@ class switch(object):
       return False
 
 def parseArgs(sysargs):
-  usage = "Usage: ./TEDetection\n \
+  usage = "Usage: ./TEDetection.py\n \
             -sd [Path/to/SourceScripts]\n \
             -bf [Path/to/BamFile.bam]\n \
             -tr [Path/to/TErefgen.fasta]\n \

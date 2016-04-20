@@ -4,6 +4,7 @@ import scipy.stats
 import itertools
 import operator
 import re
+import os.path
 
 def TestBit(int_type, offset):
     """
@@ -27,7 +28,7 @@ def GetMatchingBPCount(cigar):
     """
     return sum([int(x[:-1]) for x in re.findall("\d*M", cigar)])
 
-def GetSubfamilyCounts(filename, clusters): #, subfamilyCounts, subfamilyBPs):
+def GetSubfamilyCounts(filename, clusters, mappedReadsFile): #, subfamilyCounts, subfamilyBPs):
     """
     Reads the generated *.sam to get all of the subfamilies the aligned reads mapped to
     Returns a dictionary with the cluster number as the key and the tuple list of counts
@@ -65,11 +66,13 @@ def GetSubfamilyCounts(filename, clusters): #, subfamilyCounts, subfamilyBPs):
                         subfamilyCounts[currentCluster] = Count(clusterFamilies, subfamilyBPs, currentCluster)
                         clusterFamilies = subfamilies
                         clusters.add(clusterNum)
+                        mappedReadsFile.write(currentCluster + '\n')
                         currentCluster = clusterNum
         # For the last cluster
         subfamilyCounts[clusterNum] = Count(clusterFamilies, subfamilyBPs, clusterNum)
         clusterFamilies = subfamilies
         clusters.add(clusterNum)
+        mappedReadsFile.write(currentCluster + '\n')
         currentCluster = clusterNum
 
     return subfamilyCounts, clusters
@@ -152,8 +155,7 @@ def WriteCallFile(clusterRanges, breakpoints, discSubfamilies, softclipSubfamili
     added support for softclips and discordant reads.
     """
     outputFile = open(filename, 'w+')
-    outputFile.write("Chromosome\tCluster\tSupport\tTEFamily\tLeftBP\t\
-            RightBP\tHasBP\tSoftclipAlign\tDiscordantAlign\tTEMatch\tSubFamilyCounts\n")
+    outputFile.write("Chromosome\tCluster\tSupport\tTEFamily\tLeftBP\tRightBP\tHasBP\tSoftclipAlign\tDiscordantAlign\tTEMatch\tSubFamilyCounts\n")
     for cluster in sorted([int(cluster) for cluster in clusters]):
         cluster = str(cluster)
         if (cluster in softclipSubfamilies):
@@ -226,8 +228,11 @@ def main(args):
     callDiscOnly = int(args[9])
 
     # Calculate the subfamily support for each call
-    discSubfamilies, clusters = GetSubfamilyCounts(discSamFilename, set())
-    softclipSubfamilies, clusters = GetSubfamilyCounts(softclipSamFilename, clusters)
+    mappedReadsFilename = os.path.dirname(outputFilename) + '/' + os.path.splitext(os.path.basename(outputFilename))[0] + ".mappedreads.txt"
+    mappedReadsFile = open(mappedReadsFilename, 'w+')
+    discSubfamilies, clusters = GetSubfamilyCounts(discSamFilename, set(), mappedReadsFile)
+    softclipSubfamilies, clusters = GetSubfamilyCounts(softclipSamFilename, clusters, mappedReadsFile)
+    mappedReadsFile.close()
 
     # Grab all the relevant data
     breakpoints = GetBreakpoints(breakpointFilename, clusters)
