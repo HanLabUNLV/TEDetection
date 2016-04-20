@@ -24,8 +24,6 @@ def ParseArgs():
             help='File path to cancer .bam file', required=True)
     parser.add_argument('-nb', dest='normalBam', \
             help='File path to normal .bam file', required=True)
-    parser.add_argument('-tr', dest='TERefGenome', \
-            help='File path to TE reference genome', required=True)
     parser.add_argument('-rf', dest="resultsFolder", \
             help="File path to Results/ folder from TEDetection", default="Results/")
 
