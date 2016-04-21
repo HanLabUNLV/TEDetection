@@ -41,6 +41,7 @@ def GetPolymorphisms(polymorphFilenames):
             with open(filename, 'r') as polyFile:
                 for line in polyFile:
                     linesp = line.rstrip('\n').split('\t')
+                    TEFamily = linesp[3]
                     leftBP = linesp[4]
                     rightBP = linesp[5]
 
@@ -56,7 +57,7 @@ def GetPolymorphisms(polymorphFilenames):
                         # Swap the variables
                         leftBP, rightBP = rightBP, leftBP
 
-                    polymorphisms[chromosome].append((leftBP, rightBP))
+                    polymorphisms[chromosome].append((leftBP, rightBP, TEFamily))
 
     return polymorphisms
 
@@ -72,6 +73,7 @@ def GetBreakpoints(filename):
             linesp = line.rstrip('\n').split('\t')
             chromosome = linesp[0]
             cluster = linesp[1]
+            TEFamily = linesp[3]
             leftBP = linesp[4]
             rightBP = linesp[5]
             fileLines[cluster] = line
@@ -88,7 +90,7 @@ def GetBreakpoints(filename):
                 # Swap the variables
                 leftBP, rightBP = rightBP, leftBP
 
-            breakpoints.append((chromosome, leftBP, rightBP, cluster))
+            breakpoints.append((chromosome, leftBP, rightBP, cluster, TEFamily))
 
     return fileLines, breakpoints, header
 
@@ -107,9 +109,10 @@ def GetDiscRanges(filename, searchRange, mappedClusters):
                 discRanges[chromosome] = []
             cluster = linesp[1]
             if cluster in mappedClusters:
+                TEFamily = mappedClusters[cluster]
                 leftBP = int(linesp[2]) - searchRange
                 rightBP = int(linesp[3]) + searchRange
-                discRanges[chromosome].append((leftBP, rightBP, cluster))
+                discRanges[chromosome].append((leftBP, rightBP, cluster, TEFamily))
 
     return discRanges
 
@@ -188,13 +191,15 @@ def CompareBreakpoints(cancerLines, cancerBPs, cancerDiscRanges, normalLines, no
     cancerOnlyFile.write(header)
     normalOnlyFile.write(header)
 
-    for cancerChrom, cancerLeftBP, cancerRightBP, cancerCluster in cancerBPs:
+    for cancerChrom, cancerLeftBP, cancerRightBP, cancerCluster, cancerTEFamily in cancerBPs:
         found = False
         # Check against the normal breakpoints
-        for normalChrom, normalLeftBP, normalRightBP, normalCluster in normalBPs:
+        for normalChrom, normalLeftBP, normalRightBP, normalCluster, normalTEFamily in normalBPs:
             adjustedLeftBP = normalLeftBP - searchRange
             adjustedRightBP = normalRightBP + searchRange
-            if (cancerChrom == normalChrom) and (adjustedLeftBP <= cancerLeftBP <= adjustedRightBP or \
+            if (cancerChrom == normalChrom) and \
+                    (cancerTEFamily == normalTEFamily) and \
+                    (adjustedLeftBP <= cancerLeftBP <= adjustedRightBP or \
                     adjustedLeftBP <= cancerRightBP <= adjustedRightBP):
                 found = True
                 # Remove the subfamilies from polymorph file line
@@ -208,8 +213,9 @@ def CompareBreakpoints(cancerLines, cancerBPs, cancerDiscRanges, normalLines, no
             continue
 
         # Check against the normal discordant ranges
-        for discLeftBP, discRightBP, discCluster in normalDiscRanges[cancerChrom]:
-            if (discLeftBP <= cancerLeftBP <= discRightBP or \
+        for discLeftBP, discRightBP, discCluster, discTEFamily in normalDiscRanges[cancerChrom]:
+            if (cancerTEFamily == discTEFamily) and \
+                    (discLeftBP <= cancerLeftBP <= discRightBP or \
                     discLeftBP <= cancerRightBP <= discRightBP):
                 found = True
                 # Remove the subfamilies from polymorph file line
@@ -224,8 +230,9 @@ def CompareBreakpoints(cancerLines, cancerBPs, cancerDiscRanges, normalLines, no
 
         # Check against the polymorphisms
         if (cancerChrom in polymorphisms):
-            for polyLeftBP, polyRightBP in polymorphisms[cancerChrom]:
-                if (polyLeftBP <= cancerLeftBP <= polyRightBP or \
+            for polyLeftBP, polyRightBP, polyTEFamily in polymorphisms[cancerChrom]:
+                if (cancerTEFamily == polyTEFamily) and \
+                        (polyLeftBP <= cancerLeftBP <= polyRightBP or \
                         polyLeftBP <= cancerRightBP <= polyRightBP):
                     found = True
                     cancerLines.pop(cancerCluster, 0)
@@ -248,13 +255,14 @@ def CompareBreakpoints(cancerLines, cancerBPs, cancerDiscRanges, normalLines, no
         # Passed all checks, add to calls
         cancerOnlyFile.write(cancerLines[cancerCluster])
 
-    for normalChrom, normalLeftBP, normalRightBP, normalCluster in normalBPs:
+    for normalChrom, normalLeftBP, normalRightBP, normalCluster, normalTEFamily in normalBPs:
         found = False
         # Cluster could have been removed while checking cancer breakpoints
         if (normalCluster in normalLines):
             # Check against the cancer discordant ranges
-            for discLeftBP, discRightBP, discCluster in cancerDiscRanges[normalChrom]:
-                if (discLeftBP <= normalLeftBP <= discRightBP or \
+            for discLeftBP, discRightBP, discCluster, discTEFamily in cancerDiscRanges[normalChrom]:
+                if (normalTEFamily == discTEFamily) and \
+                        (discLeftBP <= normalLeftBP <= discRightBP or \
                         discLeftBP <= normalRightBP <= discRightBP):
                     found = True
                     # Remove the subfamilies from polymorph file line
@@ -269,8 +277,9 @@ def CompareBreakpoints(cancerLines, cancerBPs, cancerDiscRanges, normalLines, no
 
             # Check against the polymorphisms
             if (normalChrom in polymorphisms):
-                for polyLeftBP, polyRightBP in polymorphisms[normalChrom]:
-                    if (polyLeftBP <= normalLeftBP <= polyRightBP or \
+                for polyLeftBP, polyRightBP, polyTEFamily in polymorphisms[normalChrom]:
+                    if (normalTEFamily == polyTEFamily) and \
+                            (polyLeftBP <= normalLeftBP <= polyRightBP or \
                             polyLeftBP <= normalRightBP <= polyRightBP):
                         found = True
                         normalLines.pop(normalCluster, 0)
@@ -316,14 +325,16 @@ def main():
     cancerLines, cancerBPs, header = GetBreakpoints(cancerRefinedBPFilename)
     normalLines, normalBPs, header = GetBreakpoints(normalRefinedBPFilename)
 
-    cancerMappedClusters = set()
-    normalMappedClusters = set()
+    cancerMappedClusters = {}
+    normalMappedClusters = {}
     with open(cancerMappedClustersFilename, 'r') as cancerMappedFile:
         for line in cancerMappedFile:
-            cancerMappedClusters.add(line.rstrip('\n'))
+            linesp = line.rstrip('\n').split('\t')
+            cancerMappedClusters[linesp[0]] = linesp[1]
     with open(normalMappedClustersFilename, 'r') as normalMappedFile:
         for line in normalMappedFile:
-            normalMappedClusters.add(line.rstrip('\n'))
+            linesp = line.rstrip('\n').split('\t')
+            normalMappedClusters[linesp[0]] = linesp[1]
 
     cancerDiscRanges = GetDiscRanges(cancerClustersFilename, args.searchRange, cancerMappedClusters)
     normalDiscRanges = GetDiscRanges(normalClustersFilename, args.searchRange, normalMappedClusters)
