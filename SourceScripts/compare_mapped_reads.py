@@ -28,7 +28,7 @@ def GetMatchingBPCount(cigar):
     """
     return sum([int(x[:-1]) for x in re.findall("\d*M", cigar)])
 
-def GetSubfamilyCounts(filename, clusters, mappedReadsFile): #, subfamilyCounts, subfamilyBPs):
+def GetSubfamilyCounts(filename, clusters, mappedReadsFile, TEGroups): #, subfamilyCounts, subfamilyBPs):
     """
     Reads the generated *.sam to get all of the subfamilies the aligned reads mapped to
     Returns a dictionary with the cluster number as the key and the tuple list of counts
@@ -36,6 +36,7 @@ def GetSubfamilyCounts(filename, clusters, mappedReadsFile): #, subfamilyCounts,
     """
     subfamilyCounts = {}
     currentCluster = 0
+    clusterNum = 0
     clusterFamilies = []
     subfamilyBPs = {}
     with open(filename, 'r') as file:
@@ -66,13 +67,21 @@ def GetSubfamilyCounts(filename, clusters, mappedReadsFile): #, subfamilyCounts,
                         subfamilyCounts[currentCluster] = Count(clusterFamilies, subfamilyBPs, currentCluster)
                         clusterFamilies = subfamilies
                         clusters.add(clusterNum)
-                        mappedReadsFile.write(currentCluster + '\n')
+                        largestSubfamily = subfamilyCounts[currentCluster][0][0]
+                        if (TEGroups != None):
+                            mappedReadsFile.write(currentCluster + '\t' + TEGroups[largestSubfamily] + '\n')
+                        else:
+                            mappedReadsFile.write(currentCluster + '\t' + largestSubfamily + '\n')
                         currentCluster = clusterNum
         # For the last cluster
         subfamilyCounts[clusterNum] = Count(clusterFamilies, subfamilyBPs, clusterNum)
         clusterFamilies = subfamilies
         clusters.add(clusterNum)
-        mappedReadsFile.write(currentCluster + '\n')
+        largestSubfamily = subfamilyCounts[currentCluster][0][0]
+        if (TEGroups != None):
+            mappedReadsFile.write(currentCluster + '\t' + TEGroups[largestSubfamily] + '\n')
+        else:
+            mappedReadsFile.write(currentCluster + '\t' + largestSubfamily + '\n')
         currentCluster = clusterNum
 
     return subfamilyCounts, clusters
@@ -227,20 +236,21 @@ def main(args):
     readLength = int(args[8])
     callDiscOnly = int(args[9])
 
+    if (groupedTEsFilename != "none"):
+        TEGroups = GetTEGroups(groupedTEsFilename)
+    else:
+        TEGroups = None
+
     # Calculate the subfamily support for each call
     mappedReadsFilename = os.path.dirname(outputFilename) + '/' + os.path.splitext(os.path.basename(outputFilename))[0] + ".mappedreads.txt"
     mappedReadsFile = open(mappedReadsFilename, 'w+')
-    discSubfamilies, clusters = GetSubfamilyCounts(discSamFilename, set(), mappedReadsFile)
-    softclipSubfamilies, clusters = GetSubfamilyCounts(softclipSamFilename, clusters, mappedReadsFile)
+    discSubfamilies, clusters = GetSubfamilyCounts(discSamFilename, set(), mappedReadsFile, TEGroups)
+    softclipSubfamilies, clusters = GetSubfamilyCounts(softclipSamFilename, clusters, mappedReadsFile, TEGroups)
     mappedReadsFile.close()
 
     # Grab all the relevant data
     breakpoints = GetBreakpoints(breakpointFilename, clusters)
     clusterRanges = GetClusterRanges(clusterRangesFilename, clusters)
-    if (groupedTEsFilename != "none"):
-        TEGroups = GetTEGroups(groupedTEsFilename)
-    else:
-        TEGroups = None
 
     WriteCallFile(clusterRanges, breakpoints, discSubfamilies, softclipSubfamilies, clusters, \
             minSupport, readLength, callDiscOnly, TEGroups, outputFilename)
