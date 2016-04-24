@@ -39,6 +39,7 @@ def GetSubfamilyCounts(filename, clusters, mappedReadsFile, TEGroups): #, subfam
     clusterNum = 0
     clusterFamilies = []
     subfamilyBPs = {}
+    subfamilies = []
     with open(filename, 'r') as file:
         for line in file:
             if (line[0:3] != "@SQ" and line[0:3] != "@PG"):
@@ -75,7 +76,6 @@ def GetSubfamilyCounts(filename, clusters, mappedReadsFile, TEGroups): #, subfam
                         currentCluster = clusterNum
         # For the last cluster
         subfamilyCounts[clusterNum] = Count(clusterFamilies, subfamilyBPs, clusterNum)
-        clusterFamilies = subfamilies
         clusters.add(clusterNum)
         largestSubfamily = subfamilyCounts[currentCluster][0][0]
         if (TEGroups != None):
