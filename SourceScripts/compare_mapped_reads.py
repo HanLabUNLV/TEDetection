@@ -66,23 +66,24 @@ def GetSubfamilyCounts(filename, clusters, mappedReadsFile, TEGroups): #, subfam
                         clusterFamilies += subfamilies
                     else:
                         subfamilyCounts[currentCluster] = Count(clusterFamilies, subfamilyBPs, currentCluster)
-                        clusterFamilies = subfamilies
-                        clusters.add(clusterNum)
-                        largestSubfamily = subfamilyCounts[currentCluster][0][0]
-                        if (TEGroups != None):
-                            mappedReadsFile.write(currentCluster + '\t' + TEGroups[largestSubfamily] + '\n')
-                        else:
-                            mappedReadsFile.write(currentCluster + '\t' + largestSubfamily + '\n')
+                        if (subfamilyCounts[clusterNum] != []):
+                            clusterFamilies = subfamilies
+                            clusters.add(clusterNum)
+                            largestSubfamily = subfamilyCounts[currentCluster][0][0]
+                            if (TEGroups != None):
+                                mappedReadsFile.write(currentCluster + '\t' + TEGroups[largestSubfamily] + '\n')
+                            else:
+                                mappedReadsFile.write(currentCluster + '\t' + largestSubfamily + '\n')
                         currentCluster = clusterNum
         # For the last cluster
         subfamilyCounts[clusterNum] = Count(clusterFamilies, subfamilyBPs, clusterNum)
-        clusters.add(clusterNum)
-        largestSubfamily = subfamilyCounts[currentCluster][0][0]
-        if (TEGroups != None):
-            mappedReadsFile.write(currentCluster + '\t' + TEGroups[largestSubfamily] + '\n')
-        else:
-            mappedReadsFile.write(currentCluster + '\t' + largestSubfamily + '\n')
-        currentCluster = clusterNum
+        if (subfamilyCounts[clusterNum] != []):
+            clusters.add(clusterNum)
+            largestSubfamily = subfamilyCounts[currentCluster][0][0]
+            if (TEGroups != None):
+                mappedReadsFile.write(currentCluster + '\t' + TEGroups[largestSubfamily] + '\n')
+            else:
+                mappedReadsFile.write(currentCluster + '\t' + largestSubfamily + '\n')
 
     return subfamilyCounts, clusters
 
