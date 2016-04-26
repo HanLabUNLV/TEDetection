@@ -1,8 +1,5 @@
 #!/usr/bin/env python
 import sys
-import scipy.stats
-import itertools
-import operator
 import re
 import os.path
 
