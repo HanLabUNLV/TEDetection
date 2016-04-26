@@ -66,7 +66,7 @@ def GetSubfamilyCounts(filename, clusters, mappedReadsFile, TEGroups): #, subfam
                         clusterFamilies += subfamilies
                     else:
                         subfamilyCounts[currentCluster] = Count(clusterFamilies, subfamilyBPs, currentCluster)
-                        if (subfamilyCounts[clusterNum] != []):
+                        if (subfamilyCounts[currentCluster] != []):
                             clusterFamilies = subfamilies
                             clusters.add(clusterNum)
                             largestSubfamily = subfamilyCounts[currentCluster][0][0]
@@ -76,8 +76,8 @@ def GetSubfamilyCounts(filename, clusters, mappedReadsFile, TEGroups): #, subfam
                                 mappedReadsFile.write(currentCluster + '\t' + largestSubfamily + '\n')
                         currentCluster = clusterNum
         # For the last cluster
-        subfamilyCounts[clusterNum] = Count(clusterFamilies, subfamilyBPs, clusterNum)
-        if (subfamilyCounts[clusterNum] != []):
+        subfamilyCounts[currentCluster] = Count(clusterFamilies, subfamilyBPs, clusterNum)
+        if (subfamilyCounts[currentCluster] != []):
             clusters.add(clusterNum)
             largestSubfamily = subfamilyCounts[currentCluster][0][0]
             if (TEGroups != None):
