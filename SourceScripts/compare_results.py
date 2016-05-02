@@ -14,10 +14,10 @@ def ParseArgs():
             type=int, default=100, help='Search range to extend breakpoints searching for polymorphisms')
     parser.add_argument('-id', dest='patientID', \
             help='ID of the patient in the .bam file without extensions', required=True)
-    parser.add_argument('-ce', dest='cancerExt', \
-            help='File name extension of the cancer .bam file', required=True)
-    parser.add_argument('-ne', dest='normalExt', \
-            help='File name extension of the normal .bam file', required=True)
+    parser.add_argument('-ce', dest='cancerExt', default = ".cancer", \
+            help='File name extension of the cancer .bam file')
+    parser.add_argument('-ne', dest='normalExt', default = ".normal", \
+            help='File name extension of the normal .bam file')
     parser.add_argument('-pf', dest='polymorphBasename', required=True, \
             help='File path and basename (without the chromosome #) for the polymorphisms files')
     parser.add_argument('-cb', dest='cancerBam', \
@@ -26,6 +26,8 @@ def ParseArgs():
             help='File path to normal .bam file', required=True)
     parser.add_argument('-rf', dest="resultsFolder", \
             help="File path to Results/ folder from TEDetection", default="Results/")
+    parser.add_argument('-ex', dest="callFileExt", \
+            help="Extension for the call file", default = ".refined.breakpoints.txt")
 
     return parser.parse_args()
 
@@ -310,8 +312,8 @@ def CompareBreakpoints(cancerLines, cancerBPs, cancerDiscRanges, normalLines, no
 def main():
     args = ParseArgs()
 
-    cancerRefinedBPFilename = args.resultsFolder + args.patientID + args.cancerExt + ".refined.breakpoints.txt"
-    normalRefinedBPFilename = args.resultsFolder + args.patientID + args.normalExt + ".refined.breakpoints.txt"
+    cancerRefinedBPFilename = args.resultsFolder + args.patientID + args.cancerExt + args.callFileExt
+    normalRefinedBPFilename = args.resultsFolder + args.patientID + args.normalExt + args.callFileExt
     cancerMappedClustersFilename = args.resultsFolder + args.patientID + args.cancerExt + ".refined.breakpoints.mappedreads.txt"
     normalMappedClustersFilename = args.resultsFolder + args.patientID + args.normalExt + ".refined.breakpoints.mappedreads.txt"
     cancerClustersFilename = args.resultsFolder + args.patientID + args.cancerExt + ".disc.clusters.ranges.txt"
