@@ -34,6 +34,7 @@ def GetSubfamilyCounts(filename, clusters, mappedReadsFile, TEGroups): #, subfam
     subfamilyCounts = {}
     currentCluster = 0
     clusterNum = 0
+    bpCount = 0
     clusterFamilies = []
     subfamilyBPs = {}
     subfamilies = []
@@ -47,7 +48,7 @@ def GetSubfamilyCounts(filename, clusters, mappedReadsFile, TEGroups): #, subfam
                     if (currentCluster == 0):
                         currentCluster = clusterNum
                     subfamilies = [linesp[2]]
-                    subfamilyBPs[(clusterNum, linesp[2])] = GetMatchingBPCount(linesp[5])
+                    bpCount = GetMatchingBPCount(linesp[5])
                     if (linesp[-1][:5] == "XA:Z:"):
                         XAMatches = linesp[-1].rstrip('\n').split(';')
                         XAMatches[0] = XAMatches[0][5:]
@@ -58,7 +59,12 @@ def GetSubfamilyCounts(filename, clusters, mappedReadsFile, TEGroups): #, subfam
                                 subfamilyBPs[(clusterNum, matchsp[0])] = 0
                             # Extra matches add less support
                             subfamilyBPs[(clusterNum, matchsp[0])] += float(GetMatchingBPCount(matchsp[2]) / (len(XAMatches[:-1]) + 1))
-                        subfamilyBPs[(clusterNum, linesp[2])] /= float((len(XAMatches[:-1]) + 1))
+                        bpCount /= float((len(XAMatches[:-1]) + 1))
+
+                    if ((clusterNum, linesp[2]) not in subfamilyBPs):
+                        subfamilyBPs[(clusterNum, linesp[2])] = 0
+                    subfamilyBPs[(clusterNum, linesp[2])] += bpCount
+
                     if (currentCluster == clusterNum):
                         clusterFamilies += subfamilies
                     else:
