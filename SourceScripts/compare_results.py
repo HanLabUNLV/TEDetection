@@ -20,10 +20,6 @@ def ParseArgs():
             help='File name extension of the normal .bam file')
     parser.add_argument('-pf', dest='polymorphBasename', required=True, \
             help='File path and basename (without the chromosome #) for the polymorphisms files')
-    parser.add_argument('-cb', dest='cancerBam', \
-            help='File path to cancer .bam file', required=True)
-    parser.add_argument('-nb', dest='normalBam', \
-            help='File path to normal .bam file', required=True)
     parser.add_argument('-rf', dest="resultsFolder", \
             help="File path to Results/ folder from TEDetection", default="Results/")
     parser.add_argument('-ex', dest="callFileExt", \
@@ -132,58 +128,12 @@ def CalculateQuality(qualitySeq, softclipLength, minSoftclipLength, phredOffset,
                 -softclipLength + minSoftclipLength])) - \
                 phredOffset*minSoftclipLength)/minSoftclipLength
 
-def CheckSoftclips(bamFile, chromosome, position, side):
-    """
-    Extracts the softclips around a breakpoint and returns true if at least 2
-    are found around the position. Returns false otherwise
-    """
-    minQuality = 5
-    maxMismatches = 2
-    softclipID = 4
-    minSoftclipLength = 5
-    minPhredQuality = 20
-    minNumberOfSoftclips = 1
-    phredOffset = 33
-
-    numberOfSoftclips = 0
-    if (side == 0):
-        # Left side has softclip position closer
-        bamReadIter = bamFile.fetch(chromosome, position - 5, position + 5).__iter__()
-    else:
-        # Right side can have read position far from softclip
-        bamReadIter = bamFile.fetch(chromosome, position - 100, position + 100).__iter__()
-    for read in bamReadIter:
-        if (read.cigar and read.cigar[side][0] == softclipID and \
-                not read.is_duplicate and read.mapq >= minQuality):
-            mismatches = filter(lambda x: x[0] == "NM", read.tags)
-            if (mismatches or mismatches[0][1] <= maxMismatches):
-                softclipLength = read.cigar[side][1]
-                if (side == 0):
-                    softclipPosition = read.pos
-                else:
-                    softclipPosition = read.pos + read.rlen - softclipLength + 1
-                    if (read.cigar[0][0] == softclipID):
-                        softclipPosition -= read.cigar[0][1]
-
-                if (softclipLength >= minSoftclipLength):
-                    averageQuality = CalculateQuality(read.qual, softclipLength, \
-                            minSoftclipLength, phredOffset, side)
-                    if (averageQuality >= minPhredQuality and \
-                            position - 5 <= softclipPosition <= position + 5):
-                        numberOfSoftclips += 1
-                        if (numberOfSoftclips >= minNumberOfSoftclips):
-                            return True
-
-    return False
-
-def CompareBreakpoints(cancerLines, cancerBPs, cancerDiscRanges, normalLines, normalBPs, normalDiscRanges, polymorphisms, searchRange, polymorphFilenames, cancerBamFilename, normalBamFilename, resultsFolder, patientID, header):
+def CompareBreakpoints(cancerLines, cancerBPs, cancerDiscRanges, normalLines, normalBPs, normalDiscRanges, polymorphisms, searchRange, polymorphFilenames, resultsFolder, patientID, header):
     """
     Compares the cancer breakpoints to the normal breakpoints and polymorphisms.
     Once the cancerBPs and normalBPs have been checked here, they don't need to be
     checked again for the normal.
     """
-    cancerBamFile = pysam.Samfile(cancerBamFilename, 'rb')
-    normalBamFile = pysam.Samfile(normalBamFilename, 'rb')
     polymorphFiles = {}
     for chrom, filename in polymorphFilenames:
         polymorphFiles[chrom] = open(filename, 'a+')
@@ -243,17 +193,6 @@ def CompareBreakpoints(cancerLines, cancerBPs, cancerDiscRanges, normalLines, no
         if found:
             continue
 
-        # Final check for softclips in normal before calling insertion
-        splitLine = cancerLines[cancerCluster].split('\t')
-        if ((splitLine[4] != "NA" and CheckSoftclips(normalBamFile, cancerChrom, int(splitLine[4]), 0)) \
-                or (splitLine[5] != "NA" and CheckSoftclips(normalBamFile, cancerChrom, int(splitLine[5]), -1))):
-            found = True
-            # Remove the subfamilies from polymorph file line
-            polymorphLine = '\t'.join(cancerLines[cancerCluster].split('\t')[:-1]) + '\n'
-            polymorphFiles[cancerChrom].write(polymorphLine)
-            cancerLines.pop(cancerCluster, 0)
-            continue
-
         # Passed all checks, add to calls
         cancerOnlyFile.write(cancerLines[cancerCluster])
 
@@ -290,24 +229,11 @@ def CompareBreakpoints(cancerLines, cancerBPs, cancerDiscRanges, normalLines, no
             if found:
                 continue
 
-            # Final check for softclips in cancer before calling insertion
-            splitLine = normalLines[normalCluster].split('\t')
-            if ((splitLine[4] != "NA" and CheckSoftclips(cancerBamFile, normalChrom, int(splitLine[4]), 0)) \
-                    or (splitLine[5] != "NA" and CheckSoftclips(cancerBamFile, normalChrom, int(splitLine[5]), -1))):
-                found = True
-                # Remove the subfamilies from polymorph file line
-                polymorphLine = '\t'.join(normalLines[normalCluster].split('\t')[:-1]) + '\n'
-                polymorphFiles[normalChrom].write(polymorphLine)
-                normalLines.pop(discCluster, 0)
-                continue
-
             # Passed all checks, add to calls
             normalOnlyFile.write(normalLines[normalCluster])
 
     cancerOnlyFile.close()
     normalOnlyFile.close()
-    cancerBamFile.close()
-    normalBamFile.close()
 
 def main():
     args = ParseArgs()
@@ -341,7 +267,7 @@ def main():
     cancerDiscRanges = GetDiscRanges(cancerClustersFilename, args.searchRange, cancerMappedClusters)
     normalDiscRanges = GetDiscRanges(normalClustersFilename, args.searchRange, normalMappedClusters)
 
-    CompareBreakpoints(cancerLines, cancerBPs, cancerDiscRanges, normalLines, normalBPs, normalDiscRanges, polymorphisms, args.searchRange, polymorphFilenames, args.cancerBam, args.normalBam, args.resultsFolder, args.patientID, header)
+    CompareBreakpoints(cancerLines, cancerBPs, cancerDiscRanges, normalLines, normalBPs, normalDiscRanges, polymorphisms, args.searchRange, polymorphFilenames, args.resultsFolder, args.patientID, header)
 
 if __name__ == '__main__':
     main()
