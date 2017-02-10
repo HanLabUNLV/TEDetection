@@ -24,10 +24,12 @@ def ParseArgs():
             help="File path to Results/ folder from TEDetection", default="Results/")
     parser.add_argument('-ex', dest="callFileExt", \
             help="Extension for the call file", default = ".refined.breakpoints.txt")
+    parser.add_argument('-mr', dest="maxRange", \
+            help="Maximum range between breakpoints for an insertion", type=int, default = 4000)
 
     return parser.parse_args()
 
-def GetPolymorphisms(polymorphFilenames):
+def GetPolymorphisms(polymorphFilenames, MAXRANGE):
     """
     Reads all the polymorphisms*.txt files to get all the polymorph breakpoints.
     Returns a dictionary of polymorphisms for each chromosome with the list of breakpoints
@@ -37,7 +39,9 @@ def GetPolymorphisms(polymorphFilenames):
         if (os.path.isfile(filename)):
             polymorphisms[chromosome] = []
             with open(filename, 'r') as polyFile:
+                lineNumber = 0
                 for line in polyFile:
+                    lineNumber += 1
                     linesp = line.rstrip('\n').split('\t')
                     TEFamily = linesp[3]
                     leftBP = linesp[4]
@@ -55,11 +59,15 @@ def GetPolymorphisms(polymorphFilenames):
                         # Swap the variables
                         leftBP, rightBP = rightBP, leftBP
 
+                    if (rightBP - leftBP > MAXRANGE):
+                        sys.stderr.write("Insertion BPs greater than max range at line: " + str(lineNumber) + " in polymorphisms file at chromosome: " + str(chromosome) + "\n")
+                        continue
+
                     polymorphisms[chromosome].append((leftBP, rightBP, TEFamily))
 
     return polymorphisms
 
-def GetBreakpoints(filename):
+def GetBreakpoints(filename, MAXRANGE):
     """
     Reads a *.refined.breakpoints.txt file and returns a list of tuples with each breakpoint
     """
@@ -67,7 +75,9 @@ def GetBreakpoints(filename):
     fileLines = {}
     with open(filename, 'r') as file:
         header = file.readline()
+        lineNumber = 1
         for line in file:
+            lineNumber += 1
             linesp = line.rstrip('\n').split('\t')
             chromosome = linesp[0]
             cluster = linesp[1]
@@ -87,6 +97,10 @@ def GetBreakpoints(filename):
             if (leftBP > rightBP):
                 # Swap the variables
                 leftBP, rightBP = rightBP, leftBP
+
+            if (rightBP - leftBP > MAXRANGE):
+                sys.stderr.write("Insertion BPs greater than max range at line: " + str(lineNumber) + " in " + filename + "\n")
+                continue
 
             breakpoints.append((chromosome, leftBP, rightBP, cluster, TEFamily))
 
@@ -248,10 +262,10 @@ def main():
     chromosomes = [str(x) for x in range(1, 23)] + ['X', 'Y']
     polymorphFilenames = [(chrom, args.polymorphBasename + chrom + ".txt") for chrom in chromosomes]
 
-    polymorphisms = GetPolymorphisms(polymorphFilenames)
+    polymorphisms = GetPolymorphisms(polymorphFilenames, args.maxRange)
 
-    cancerLines, cancerBPs, header = GetBreakpoints(cancerRefinedBPFilename)
-    normalLines, normalBPs, header = GetBreakpoints(normalRefinedBPFilename)
+    cancerLines, cancerBPs, header = GetBreakpoints(cancerRefinedBPFilename, args.maxRange)
+    normalLines, normalBPs, header = GetBreakpoints(normalRefinedBPFilename, args.maxRange)
 
     cancerMappedClusters = {}
     normalMappedClusters = {}
