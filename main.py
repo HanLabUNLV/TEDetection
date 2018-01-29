@@ -5,6 +5,8 @@ import sys
 import datetime
 import subprocess
 
+VERSION = 1.0
+
 class switch(object):
   def __init__(self, value):
     self.value = value
@@ -24,6 +26,7 @@ class switch(object):
       return False
 
 def parseArgs(sysargs):
+  global VERSION
   usage = "Usage: ./TEDetection.py\n \
             -sd [Path/to/SourceScripts]\n \
             -bf [Path/to/BamFile.bam]\n \
@@ -50,6 +53,7 @@ def parseArgs(sysargs):
             -st <int> default:1    Number of threads for sorting\n \
             -sm <int>(bytes) default: 1073741824 (1 GB) Amount of memory per thread used in sorting\n \
             -d  Discard intermediate files when finished\n \
+            -v/--version  Display version information and exit\n \
             -h/--help This usage output"
 
   args = {}
@@ -77,8 +81,13 @@ def parseArgs(sysargs):
         args[opt] = True
         i += 1
         break
+
       if case("-h") or case("--help") or case (""):
         print usage
+        quit()
+
+      if case("-v") or case("--version"):
+        print "TEDetection version: " + str(VERSION)
         quit()
 
       if (default):
@@ -91,6 +100,7 @@ def parseArgs(sysargs):
   return args
 
 def main(args):
+  global VERSION
   argdict = parseArgs(args)
   sys.path.append(argdict["-sd"])
   import cluster_discordant_pairs
@@ -113,6 +123,10 @@ def main(args):
     os.makedirs("Results")
   except OSError:
     print "Results folder already exists"
+
+  versionfile = open("Results/VERSION.txt", 'w+')
+  versionfile.write(str(VERSION) + '\n')
+  versionfile.close()
 
   if ("-bf" in argdict):
     basename = os.path.splitext(os.path.basename(argdict["-bf"]))[0]
