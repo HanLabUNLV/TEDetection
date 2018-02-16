@@ -53,6 +53,11 @@ Bamcollate2:
     git clone https://github.com/gt1/libmaus.git
     cd libmaus
     autoreconf -i -f
+        - If you get any errors, make sure these packages are installed according to your distribution:
+            Ubuntu/Debian:
+                sudo apt-get install autoconf automake libtool
+            Fedora/RHEL:
+                sudo yum install autoconf automake libtool
     ./configure
     make
     sudo make install
