@@ -172,7 +172,7 @@ def main(args):
 
     extract_discordant_pairs.main(["none", argdict["-bb"], argdict["-is"]])
 
-    discsortcommand = "samtools sort Scratch/%s.disc.bam Scratch/%s.disc" % (os.path.splitext(os.path.basename(argdict["-bb"]))[0], basename)
+    discsortcommand = "samtools sort -O bam -T Scratch/%s.disc -o Scratch/%s.disc.bam Scratch/%s.disc.bam" % (basename, basename, os.path.splitext(os.path.basename(argdict["-bb"]))[0])
     discsortproc = subprocess.Popen(discsortcommand, stdout=subprocess.PIPE, shell=True)
     discsortproc.wait()
 
@@ -197,7 +197,7 @@ def main(args):
     outputfile.write(str(datetime.datetime.today()) + '\n')
     genmatefastqcommand = "python %s/generate_mate_fastq.py %s %s %s %s %s" % (argdict["-sd"], argdict["-dq"], argdict["-di"], argdict["-cf"], argdict["-tr"], argdict["-st"])
     genmatefastqproc = subprocess.Popen(genmatefastqcommand, stdout=subprocess.PIPE, shell=True)
-    argdict["-cs"] = "Results/%s.disc.sam" % (os.path.splitext(os.path.basename(argdict["-di"]))[0])
+    argdict["-cs"] = "Scratch/%s.clusters.sam" % (os.path.splitext(os.path.basename(argdict["-di"]))[0])
     mapclusran = True
 
   mapscran = False
@@ -206,7 +206,7 @@ def main(args):
     outputfile.write(str(datetime.datetime.today()) + '\n')
     extractsccommand = "python  %s/extract_softclips.py %s %s %s %s %s %s 1 %s %s 10 2 0" % (argdict["-sd"], argdict["-bf"], argdict["-cr"], argdict["-rd"], argdict["-tr"], argdict["-st"], argdict["-mc"], argdict["-ms"], argdict["-mp"])
     extractscproc = subprocess.Popen(extractsccommand, stdout=subprocess.PIPE, shell=True)
-    argdict["-ss"] = "Results/%s.sc.sam" % (basename)
+    argdict["-ss"] = "Scratch/%s.softclips.sam" % (basename)
     argdict["-bp"] = "Results/%s.breakpoints.txt" % (basename)
     mapscran = True
 
